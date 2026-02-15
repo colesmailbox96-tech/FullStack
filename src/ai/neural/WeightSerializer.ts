@@ -110,6 +110,11 @@ export class WeightSerializer {
   ): void {
     const data: WeightData = JSON.parse(json);
 
+    // Validate basic structure to prevent prototype pollution
+    if (!data || typeof data !== 'object' || !data.version || !data.weights || typeof data.weights !== 'object') {
+      throw new Error('Invalid weight data format');
+    }
+
     // Perception encoder
     const percLayers = perceptionEncoder.getLinearLayers();
     for (let i = 0; i < percLayers.length; i++) {
