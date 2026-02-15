@@ -8,6 +8,7 @@ import NPCInfoPanel from './ui/NPCInfoPanel';
 import SpeedControls from './ui/SpeedControls';
 import DebugOverlay from './ui/DebugOverlay';
 import EventLogPanel from './ui/EventLogPanel';
+import AchievementPanel from './ui/AchievementPanel';
 
 const App: React.FC = () => {
   const showWelcome = useSimulation(s => s.showWelcome);
@@ -25,6 +26,7 @@ const App: React.FC = () => {
           <NPCInfoPanel />
           <SpeedControls />
           <EventLogPanel />
+          <AchievementPanel />
           {showDebug && <DebugOverlay />}
         </>
       )}
