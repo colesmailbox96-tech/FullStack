@@ -132,9 +132,10 @@ export class DataQualityAnalyzer {
     if (lowVarianceFeatures.length > 0) details.push(`Low variance (<0.01) features: ${lowVarianceFeatures.join(', ')}`);
     details.push(`${activeFeatures}/${PERCEPTION_VECTOR_LENGTH} features have non-zero variance`);
 
-    // Allow up to 25% zero-variance features to account for fields
-    // not yet present in the DecisionLog perception format (e.g. season,
-    // memory significance, camera data).
+    // Allow up to 25% zero-variance features to account for fields that
+    // encodePerception() always sets to zero because the DecisionLog
+    // perception format omits them (season code, memory significance
+    // slots, and camera position/dwell — see encodePerception layout).
     const maxZeroAllowed = Math.floor(PERCEPTION_VECTOR_LENGTH * 0.25);
     return {
       name: 'Feature Variance',
@@ -239,6 +240,9 @@ export class DataQualityAnalyzer {
     }
 
     const score = Math.round((passCount / Object.keys(EXPECTED_CORRELATIONS).length) * 100);
+    // Allow one weak correlation: EXPLORE serves as both a curiosity-driven
+    // action and the behavior tree's default fallback, diluting its
+    // correlation with the curiosity need.
     return {
       name: 'Decision-Context Correlation',
       passed: passCount >= Object.keys(EXPECTED_CORRELATIONS).length - 1,

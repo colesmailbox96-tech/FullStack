@@ -16,7 +16,7 @@ const MEMORY_TYPES = ['found_food', 'danger', 'met_npc', 'found_shelter', 'disco
  * Provides full-range coverage of need values over time.
  */
 function triangleWave(tick: number, period: number, phase: number = 0): number {
-  const t = ((tick + phase) % period) / period;
+  const t = (((tick + phase) % period) + period) % period / period;
   return t < 0.5 ? t * 2 : 2 - t * 2;
 }
 
