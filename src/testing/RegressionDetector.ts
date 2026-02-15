@@ -106,7 +106,11 @@ export class RegressionDetector {
     return { regressions, improvements, stable };
   }
 
-  /** Approximate p-value using z-test against historical mean. */
+  /**
+   * Approximate p-value using z-test against historical mean.
+   * Uses the normal probability density function: p ≈ 2 * exp(-z²/2)
+   * as a fast two-tailed approximation for moderate z values.
+   */
   private computeSignificance(current: number, history: number[]): number {
     if (history.length < 2) return 1.0;
 

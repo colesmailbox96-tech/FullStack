@@ -7,6 +7,20 @@ import type { WeatherState } from '../world/Weather';
 const WEATHER_TYPES: WeatherState[] = ['clear', 'cloudy', 'rain', 'storm', 'snow', 'fog'];
 const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 
+/** Baseline drain rates for synthetic data generation. */
+const HUNGER_DRAIN = 0.003;
+const ENERGY_DRAIN = 0.004;
+const SOCIAL_DRAIN = 0.002;
+const CURIOSITY_DRAIN = 0.002;
+const SAFETY_DRIFT = 0.001;
+
+/** Oscillation amplitudes to create realistic need variation. */
+const HUNGER_OSCILLATION = 0.005;
+const ENERGY_OSCILLATION = 0.005;
+const SOCIAL_OSCILLATION = 0.004;
+const CURIOSITY_OSCILLATION = 0.004;
+const SAFETY_OSCILLATION = 0.006;
+
 /**
  * Generate a synthetic decision log by running a brain against
  * procedurally-generated perceptions. Used for headless testing.
@@ -16,12 +30,12 @@ export function generateSyntheticLog(brain: IBrain, count: number): DecisionLog[
   const needs = { hunger: 0.7, energy: 0.7, social: 0.6, curiosity: 0.6, safety: 0.8 };
 
   for (let i = 0; i < count; i++) {
-    // Slowly vary needs to create diverse data
-    needs.hunger = Math.max(0.05, Math.min(0.95, needs.hunger - 0.003 + Math.sin(i * 0.01) * 0.005));
-    needs.energy = Math.max(0.05, Math.min(0.95, needs.energy - 0.004 + Math.sin(i * 0.013) * 0.005));
-    needs.social = Math.max(0.05, Math.min(0.95, needs.social - 0.002 + Math.sin(i * 0.008) * 0.004));
-    needs.curiosity = Math.max(0.05, Math.min(0.95, needs.curiosity - 0.002 + Math.sin(i * 0.007) * 0.004));
-    needs.safety = Math.max(0.05, Math.min(0.95, needs.safety - 0.001 + Math.cos(i * 0.02) * 0.006));
+    // Slowly vary needs to create diverse data using drain + oscillation
+    needs.hunger = Math.max(0.05, Math.min(0.95, needs.hunger - HUNGER_DRAIN + Math.sin(i * 0.01) * HUNGER_OSCILLATION));
+    needs.energy = Math.max(0.05, Math.min(0.95, needs.energy - ENERGY_DRAIN + Math.sin(i * 0.013) * ENERGY_OSCILLATION));
+    needs.social = Math.max(0.05, Math.min(0.95, needs.social - SOCIAL_DRAIN + Math.sin(i * 0.008) * SOCIAL_OSCILLATION));
+    needs.curiosity = Math.max(0.05, Math.min(0.95, needs.curiosity - CURIOSITY_DRAIN + Math.sin(i * 0.007) * CURIOSITY_OSCILLATION));
+    needs.safety = Math.max(0.05, Math.min(0.95, needs.safety - SAFETY_DRIFT + Math.cos(i * 0.02) * SAFETY_OSCILLATION));
 
     const timeOfDay = (i % 2400) / 2400;
     const weatherIdx = Math.floor(i / 300) % WEATHER_TYPES.length;

@@ -51,6 +51,9 @@ const App: React.FC = () => {
             visible={showTestingDashboard}
             onClose={toggleTestingDashboard}
             dataLog={[]}
+            /* dataLog is empty until the DataLogger is wired into the simulation tick loop.
+               The dashboard gracefully handles empty logs and allows running benchmarks,
+               A/B comparisons, and readiness checks independently. */
           />
         </>
       )}

@@ -121,7 +121,9 @@ export function encodePerception(p: DecisionLog['perception'], tick: number): nu
   // 5-7: environment
   vec[5] = p.time_of_day ?? 0;
   vec[6] = WEATHER_CODES[p.weather] ?? 0;
-  vec[7] = 0; // season not in DecisionLog perception, default 0
+  // Season is not present in the DecisionLog perception format;
+  // will be populated once the logging pipeline includes season data.
+  vec[7] = 0;
 
   // 8-11: terrain summary
   const tileSummary = p.nearby_tiles_summary ?? {};
