@@ -251,10 +251,12 @@ export class Trainer {
     emotionalState: number[];
   } {
     const embedding = this.perceptionEncoder.encode(sample.perceptionVector);
-    // Empty memory sequence and mask for initial training (no episodic memory).
-    // TransformerBrain.forward handles empty arrays by padding internally.
-    const emptyMemorySequence: number[][] = [];
-    const emptyAttentionMask: boolean[] = [];
+    // Provide zero-padded memory sequence for initial training (no episodic memory).
+    const emptyMemorySequence: number[][] = Array.from(
+      { length: this.network.numMemorySlots },
+      () => new Array(this.network.embeddingDim).fill(0)
+    );
+    const emptyAttentionMask: boolean[] = new Array(this.network.numMemorySlots).fill(false);
 
     const result = this.network.forward(embedding, emptyMemorySequence, emptyAttentionMask);
     return {
