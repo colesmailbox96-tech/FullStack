@@ -38,6 +38,8 @@ export class NPCManager {
     for (const npc of this.npcs) {
       npc.update(config, weather, timeSystem, tileMap, objects, this.npcs, weatherSystem);
     }
+    // Remove dead NPCs whose death animation has completed
+    this.npcs = this.npcs.filter(npc => npc.alive || npc.deathAnimation < 1);
     this.checkSpawning(config, tileMap);
   }
 
@@ -75,6 +77,11 @@ export class NPCManager {
     // Maintain minimum population
     if (alive.length < config.minPopulation) {
       this.spawnNPC(tileMap, config);
+      return;
+    }
+
+    // Do not exceed maximum population
+    if (alive.length >= config.maxPopulation) {
       return;
     }
 

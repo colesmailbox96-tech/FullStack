@@ -122,7 +122,8 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
 
     const prevWeather = weather.current;
     const prevSeason = timeSystem.season;
-    const prevAliveCount = npcManager.getAliveNPCs().length;
+    const prevAliveSet = new Set(npcManager.getAliveNPCs().map(n => n.id));
+    const prevAliveCount = prevAliveSet.size;
 
     timeSystem.update();
     weather.update(timeSystem.season, config);
@@ -166,26 +167,29 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
       }
     }
 
-    // Log NPC deaths — detect NPCs in their first tick of death animation
-    const DEATH_ANIMATION_FIRST_TICK = 0.05;
+    // Detect deaths and births by comparing alive IDs before/after update
     const currentAlive = npcManager.getAliveNPCs();
-    if (currentAlive.length < prevAliveCount) {
-      const dead = npcManager.getNPCs().filter(n => !n.alive && n.deathAnimation <= DEATH_ANIMATION_FIRST_TICK);
-      for (const npc of dead) {
-        const idNum = npc.id.replace(/\D/g, '') || npc.id;
-        eventLog.addEvent({
-          tick: currentTick,
-          type: 'npc_died',
-          description: `Villager #${idNum} has died`,
-          npcId: npc.id,
-          x: Math.floor(npc.x),
-          y: Math.floor(npc.y),
-        });
-      }
+    const currentAliveSet = new Set(currentAlive.map(n => n.id));
+
+    // Log NPC deaths — NPCs that were alive before but are no longer
+    const newlyDeadIds = [...prevAliveSet].filter(id => !currentAliveSet.has(id));
+    const findNPC = (id: string) => npcManager.getNPCById(id) ?? npcManager.getNPCs().find(n => n.id === id);
+    for (const deadId of newlyDeadIds) {
+      const npc = findNPC(deadId);
+      const idNum = deadId.replace(/\D/g, '') || deadId;
+      eventLog.addEvent({
+        tick: currentTick,
+        type: 'npc_died',
+        description: `Villager #${idNum} has died`,
+        npcId: deadId,
+        x: npc ? Math.floor(npc.x) : 0,
+        y: npc ? Math.floor(npc.y) : 0,
+      });
     }
 
-    // Log NPC births (population increased)
-    if (currentAlive.length > prevAliveCount) {
+    // Log NPC births — NPCs that are alive now but weren't before
+    const newlyBornIds = [...currentAliveSet].filter(id => !prevAliveSet.has(id));
+    for (let i = 0; i < newlyBornIds.length; i++) {
       eventLog.addEvent({
         tick: currentTick,
         type: 'npc_born',
@@ -194,12 +198,12 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
     }
 
     // Update population tracker
-    const births = Math.max(0, currentAlive.length - prevAliveCount);
-    const deaths = Math.max(0, prevAliveCount - currentAlive.length);
+    const births = newlyBornIds.length;
+    const deaths = newlyDeadIds.length;
     populationTracker.recordTick(currentTick, currentAlive.length, births, deaths);
-    if (deaths > 0) {
-      const deadNPCs = npcManager.getNPCs().filter(n => !n.alive && n.deathAnimation <= DEATH_ANIMATION_FIRST_TICK);
-      for (const npc of deadNPCs) {
+    for (const deadId of newlyDeadIds) {
+      const npc = findNPC(deadId);
+      if (npc) {
         populationTracker.recordDeath(npc.age);
       }
     }
