@@ -51,6 +51,8 @@ export class NPC {
   moveTimer: number;
   actionTimer: number;
   tilesVisited: Set<string>;
+  /** Ticks the NPC has spent within its familiar area (for boredom acceleration) */
+  staleAreaTicks: number;
   spawnAnimation: number;
   deathAnimation: number;
   idlePhase: number;
@@ -87,6 +89,7 @@ export class NPC {
     this.actionTimer = 0;
     this.tilesVisited = new Set<string>();
     this.tilesVisited.add(`${Math.floor(x)},${Math.floor(y)}`);
+    this.staleAreaTicks = 0;
     this.spawnAnimation = 0;
     this.deathAnimation = 0;
     this.idlePhase = rng.next() * Math.PI * 2;
@@ -204,19 +207,26 @@ export class NPC {
     }
 
     // --- Curiosity drain ---
-    // Fix 4: Drains when NPC stays within staleRadius for staleTicks. Boredom
-    // acceleration: 2× after boredomAccelTicks, 3× after boredomSevereTicks.
+    // Drains when NPC is on already-visited tiles. staleAreaTicks tracks
+    // consecutive ticks on familiar ground; resets when a new tile is visited.
+    // Boredom acceleration: 2× after boredomAccelTicks, 3× after boredomSevereTicks.
     const tileKey = `${Math.floor(this.x)},${Math.floor(this.y)}`;
-    if (this.tilesVisited.has(tileKey) && this.age > config.curiosityStaleTicks) {
-      let curiosityMultiplier = 1;
-      if (this.age > config.boredomSevereTicks) {
-        curiosityMultiplier = 3;
-      } else if (this.age > config.boredomAccelTicks) {
-        curiosityMultiplier = 2;
+    if (this.tilesVisited.has(tileKey)) {
+      this.staleAreaTicks++;
+      if (this.staleAreaTicks > config.curiosityStaleTicks) {
+        let curiosityMultiplier = 1;
+        if (this.staleAreaTicks > config.boredomSevereTicks) {
+          curiosityMultiplier = 3;
+        } else if (this.staleAreaTicks > config.boredomAccelTicks) {
+          curiosityMultiplier = 2;
+        }
+        this.needs.curiosity = clamp(
+          this.needs.curiosity - config.curiosityDrain * curiosityMultiplier, 0, 1,
+        );
       }
-      this.needs.curiosity = clamp(
-        this.needs.curiosity - config.curiosityDrain * curiosityMultiplier, 0, 1,
-      );
+    } else {
+      // New tile discovered — reset stale area counter
+      this.staleAreaTicks = 0;
     }
 
     // --- Safety drain ---
@@ -267,8 +277,8 @@ export class NPC {
         break;
       }
       case 'REST': {
-        // REST recovery is now handled in updateNeeds for correct drain/recovery
-        // logic (Fix 1). No additional recovery here to avoid double-counting.
+        // REST recovery is handled in updateNeeds to ensure consistent
+        // drain/recovery ordering each tick. No additional recovery here.
         break;
       }
       case 'SOCIALIZE': {

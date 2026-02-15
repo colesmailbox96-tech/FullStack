@@ -52,6 +52,8 @@ export class Weather {
     this.windDirection = this.rng.next() * Math.PI * 2;
     this.windStrength = 0.2;
     this.intensity = 0;
+    // Transitions every 200-400 ticks to ensure storms occur often enough
+    // for meaningful training data generation.
     this.transitionTimer = 200 + this.rng.nextInt(200);
   }
 

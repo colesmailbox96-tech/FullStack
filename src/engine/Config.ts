@@ -54,8 +54,9 @@ export interface WorldConfig {
  * Key tuning rationale (see TRAINING_CONFIG for harsh training values):
  * - energyDrain 0.004/tick while idle, ~0.006 while moving → REST triggers
  *   every few minutes of gameplay.
- * - stormSafetyPenalty 0.03/tick → NPC hits safety threshold in ~23 ticks of storm.
+ * - stormSafetyPenalty 0.04/tick → NPC hits safety threshold in ~18 ticks of storm.
  * - bushDensity 0.025, foodPerBush 4 → food exists but requires effort.
+ * - winterFoodReduction 0.6 → 60% less food regrowth in winter.
  * - curiosityDrain 0.003/tick in familiar areas → EXPLORE triggers regularly.
  * - socialDrain 0.003/tick when alone → SOCIALIZE triggers when isolated.
  */

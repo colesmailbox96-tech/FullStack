@@ -44,10 +44,16 @@ export interface DecisionLog {
   outcome: Outcome;
 }
 
+/** Minimum percentage of total actions for any single action type */
+const MIN_ACTION_PERCENTAGE = 5;
+/** Maximum percentage of total actions for any single action type */
+const MAX_ACTION_PERCENTAGE = 50;
+
 /**
- * Validates training data diversity (Fix 7).
+ * Validates training data diversity.
  * Returns { valid, report } where valid is false if any expected action
- * is below 5% or above 50%. Called automatically every 5,000 ticks.
+ * is below MIN_ACTION_PERCENTAGE or above MAX_ACTION_PERCENTAGE.
+ * Call automatically every 5,000 ticks.
  */
 export function validateTrainingData(log: DecisionLogEntry[]): { valid: boolean; report: string } {
   const counts: Record<string, number> = {};
@@ -62,9 +68,9 @@ export function validateTrainingData(log: DecisionLogEntry[]): { valid: boolean;
   for (const action of expectedActions) {
     const count = counts[action] || 0;
     const pct = total > 0 ? (count / total) * 100 : 0;
-    const status = pct < 5 ? '❌ FAIL' : pct > 50 ? '⚠️ DOMINANT' : '✅ OK';
+    const status = pct < MIN_ACTION_PERCENTAGE ? '❌ FAIL' : pct > MAX_ACTION_PERCENTAGE ? '⚠️ DOMINANT' : '✅ OK';
     lines.push(`  ${action.padEnd(15)} ${pct.toFixed(1).padStart(5)}%  ${status}`);
-    if (pct < 5 || pct > 50) valid = false;
+    if (pct < MIN_ACTION_PERCENTAGE || pct > MAX_ACTION_PERCENTAGE) valid = false;
   }
 
   lines.push('');
