@@ -10,8 +10,10 @@ export function createEmptyInventory(): Inventory {
   return { wood: 0, stone: 0, berries: 0 };
 }
 
+export const MAX_INVENTORY_PER_RESOURCE = 10;
+
 export function addResource(inventory: Inventory, type: ResourceType, amount: number): void {
-  inventory[type] = Math.min(inventory[type] + amount, 10);
+  inventory[type] = Math.min(inventory[type] + amount, MAX_INVENTORY_PER_RESOURCE);
 }
 
 export function removeResource(inventory: Inventory, type: ResourceType, amount: number): boolean {

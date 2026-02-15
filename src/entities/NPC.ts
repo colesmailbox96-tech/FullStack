@@ -142,7 +142,7 @@ export class NPC {
     // AI decision
     const perception = buildPerception(
       this, tileMap, objects, allNPCs, timeSystem, weatherSystem,
-      this.x, this.y, 1,
+      this.x, this.y, 1, config.craftInventoryThreshold,
     );
     const action = brain.decide(perception);
     this.currentAction = action.type;

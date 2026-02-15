@@ -261,8 +261,7 @@ export class BehaviorTreeBrain implements IBrain {
     const recipes = getAvailableRecipes(perception.inventory);
     if (recipes.length === 0) return null;
 
-    // Craftiness personality influences eagerness; higher = crafts more readily
-    const craftThreshold = applyTraitModifier(5, perception.personality.craftiness);
+    const craftThreshold = applyTraitModifier(perception.craftInventoryThreshold, perception.personality.craftiness);
     if (totalResources(perception.inventory) < craftThreshold) return null;
 
     return {

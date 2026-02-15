@@ -51,6 +51,7 @@ export interface Perception {
   cameraX: number;
   cameraY: number;
   cameraZoom: number;
+  craftInventoryThreshold: number;
 }
 
 const PERCEPTION_RADIUS = 8;
@@ -65,6 +66,7 @@ export function buildPerception(
   cameraX: number,
   cameraY: number,
   cameraZoom: number,
+  craftInventoryThreshold: number = 5,
 ): Perception {
   const nearbyTiles: TileInfo[] = [];
   for (let dy = -PERCEPTION_RADIUS; dy <= PERCEPTION_RADIUS; dy++) {
@@ -119,5 +121,6 @@ export function buildPerception(
     cameraX,
     cameraY,
     cameraZoom,
+    craftInventoryThreshold,
   };
 }

@@ -26,6 +26,7 @@ function makePerception(overrides: Partial<Perception> = {}): Perception {
     cameraX: 5,
     cameraY: 5,
     cameraZoom: 1,
+    craftInventoryThreshold: 5,
     ...overrides,
   };
 }
