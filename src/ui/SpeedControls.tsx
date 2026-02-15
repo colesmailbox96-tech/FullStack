@@ -15,8 +15,12 @@ const dataLogger = new DataLogger();
 const SpeedControls: React.FC = () => {
   const speed = useSimulation(s => s.speed);
   const volume = useSimulation(s => s.volume);
+  const showEventLog = useSimulation(s => s.showEventLog);
+  const showAchievements = useSimulation(s => s.showAchievements);
   const setSpeed = useSimulation(s => s.setSpeed);
   const setVolume = useSimulation(s => s.setVolume);
+  const toggleEventLog = useSimulation(s => s.toggleEventLog);
+  const toggleAchievements = useSimulation(s => s.toggleAchievements);
 
   const handleVolumeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +74,32 @@ const SpeedControls: React.FC = () => {
         title="Download decision log"
       >
         📥 Export Data
+      </button>
+
+      {/* Event log toggle */}
+      <button
+        onClick={toggleEventLog}
+        className={`bg-black/70 backdrop-blur-sm rounded-lg border border-gray-700/50 px-3 py-1.5 text-xs transition-colors duration-150 ${
+          showEventLog
+            ? 'bg-emerald-600/70 text-white border-emerald-500/50'
+            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+        }`}
+        title="Toggle event log"
+      >
+        📜 Events
+      </button>
+
+      {/* Achievements toggle */}
+      <button
+        onClick={toggleAchievements}
+        className={`bg-black/70 backdrop-blur-sm rounded-lg border border-gray-700/50 px-3 py-1.5 text-xs transition-colors duration-150 ${
+          showAchievements
+            ? 'bg-emerald-600/70 text-white border-emerald-500/50'
+            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+        }`}
+        title="Toggle achievements"
+      >
+        🏆 Achievements
       </button>
     </div>
   );

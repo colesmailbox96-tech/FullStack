@@ -8,9 +8,23 @@ import type { WeatherState, Weather } from '../world/Weather';
 import { WorldConfig } from '../engine/Config';
 import { Needs, createDefaultNeeds } from './Needs';
 import { MemorySystem } from './Memory';
+import { Personality, createRandomPersonality } from './Personality';
+import { RelationshipSystem } from './Relationship';
+import { Inventory, createEmptyInventory, addResource, totalResources } from './Inventory';
+import { Skills, createDefaultSkills, grantSkillXP, getSkillBonus } from './Skills';
+import { evaluateTrade, executeTrade } from './Trading';
+import { getAvailableRecipes, craftItem } from '../engine/Crafting';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
 import { buildPerception } from '../ai/Perception';
+import { generateNPCName } from './Names';
+import { FatigueTracker } from './Fatigue';
+import { StatusEffectManager, evaluateStatusEffects } from './StatusEffects';
+import { TerritorySystem } from './Territory';
+import { ReputationSystem, REPUTATION_PER_TRADE, REPUTATION_PER_CRAFT, REPUTATION_PER_SOCIAL } from './Reputation';
+import { TitleTracker, checkTitleEligibility } from './Titles';
+import { determineMood, type MoodEmote } from './MoodEmotes';
+import { getAgeTier, type AgeTierType } from './AgeTier';
 
 export interface NPCAppearance {
   skinTone: number;
@@ -23,19 +37,24 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 
 const MOVE_TICKS = 8;
 const FORAGE_TICKS = 30;
-const MOVING_HUNGER_MULTIPLIER = 1.67;
-const REST_ENERGY_FACTOR = -0.5;
+const MOVING_ENERGY_MULTIPLIER = 1.5;
+const IDLE_ENERGY_DRAIN_BASE = 0.003;
 
 const brain = new BehaviorTreeBrain();
 
 export class NPC {
   readonly id: string;
+  readonly name: string;
   x: number;
   y: number;
   prevX: number;
   prevY: number;
   needs: Needs;
   memory: MemorySystem;
+  personality: Personality;
+  relationships: RelationshipSystem;
+  inventory: Inventory;
+  skills: Skills;
   appearance: NPCAppearance;
   direction: Direction;
   isMoving: boolean;
@@ -51,9 +70,32 @@ export class NPC {
   moveTimer: number;
   actionTimer: number;
   tilesVisited: Set<string>;
+  /** Ticks the NPC has spent within its familiar area (for boredom acceleration) */
+  staleAreaTicks: number;
   spawnAnimation: number;
   deathAnimation: number;
   idlePhase: number;
+
+  /** Feature: Fatigue system tracking work exhaustion */
+  fatigue: FatigueTracker;
+  /** Feature: Status effects (buffs/debuffs) */
+  statusEffects: StatusEffectManager;
+  /** Feature: Territory/home system */
+  territory: TerritorySystem;
+  /** Feature: Reputation system */
+  reputation: ReputationSystem;
+  /** Feature: Title tracking */
+  titles: TitleTracker;
+  /** Feature: Current mood emote */
+  currentMood: MoodEmote;
+  /** Feature: Current age tier */
+  ageTier: AgeTierType;
+  /** Whether this NPC was part of the original spawn */
+  isOriginal: boolean;
+  /** Count of items crafted by this NPC */
+  craftCount: number;
+  /** Whether this NPC has survived a storm */
+  survivedStorm: boolean;
 
   private rng: Random;
 
@@ -66,6 +108,11 @@ export class NPC {
     this.rng = rng;
     this.needs = createDefaultNeeds(() => rng.next());
     this.memory = new MemorySystem(config.memoryCapacity);
+    this.personality = createRandomPersonality(() => rng.next());
+    this.relationships = new RelationshipSystem();
+    this.inventory = createEmptyInventory();
+    this.skills = createDefaultSkills();
+    this.name = generateNPCName(this.personality, () => rng.next());
     this.appearance = {
       skinTone: rng.nextInt(4),
       hairColor: rng.nextInt(6),
@@ -87,9 +134,22 @@ export class NPC {
     this.actionTimer = 0;
     this.tilesVisited = new Set<string>();
     this.tilesVisited.add(`${Math.floor(x)},${Math.floor(y)}`);
+    this.staleAreaTicks = 0;
     this.spawnAnimation = 0;
     this.deathAnimation = 0;
     this.idlePhase = rng.next() * Math.PI * 2;
+
+    // Initialize new feature systems
+    this.fatigue = new FatigueTracker();
+    this.statusEffects = new StatusEffectManager();
+    this.territory = new TerritorySystem();
+    this.reputation = new ReputationSystem();
+    this.titles = new TitleTracker();
+    this.currentMood = determineMood(this.needs, this.currentAction);
+    this.ageTier = getAgeTier(this.age);
+    this.isOriginal = false;
+    this.craftCount = 0;
+    this.survivedStorm = false;
   }
 
   update(
@@ -110,9 +170,57 @@ export class NPC {
     this.spawnAnimation = clamp(this.spawnAnimation + 0.05, 0, 1);
     this.idlePhase += 0.05;
 
+    // Update age tier
+    this.ageTier = getAgeTier(this.age);
+
     const nearbyNPCs = this.getNearbyNPCs(allNPCs, config.socialRange);
     this.updateNeeds(config, weather, timeSystem, nearbyNPCs, tileMap);
     this.memory.update(config.memoryDecayRate);
+    this.relationships.update(config.memoryDecayRate * 0.5);
+
+    // Update status effects
+    const inShelter = this.isInShelter(tileMap);
+    const isStorm = weather === 'storm';
+    const isNight = timeSystem.isNight();
+    const effectChanges = evaluateStatusEffects(
+      this.needs, inShelter, nearbyNPCs.length, isStorm, isNight,
+    );
+    for (const eff of effectChanges.add) {
+      this.statusEffects.addEffect(eff, 100);
+    }
+    for (const eff of effectChanges.remove) {
+      this.statusEffects.removeEffect(eff);
+    }
+    this.statusEffects.update();
+
+    // Update fatigue
+    this.fatigue.addWorkFatigue(this.currentAction);
+
+    // Update territory familiarity
+    this.territory.updateFamiliarity(this.x, this.y);
+
+    // Update mood
+    this.currentMood = determineMood(this.needs, this.currentAction);
+
+    // Check title eligibility periodically (every 120 ticks)
+    if (this.age % 120 === 0) {
+      const friendCount = this.relationships.getRelationships().filter(r => r.affinity >= 0.4).length;
+      const eligible = checkTitleEligibility({
+        age: this.age,
+        tilesVisited: this.tilesVisited.size,
+        craftCount: this.craftCount,
+        friendshipCount: friendCount,
+        foragingSkill: this.skills.foraging,
+        totalResources: totalResources(this.inventory),
+        isOriginal: this.isOriginal,
+        survivedStorm: this.survivedStorm,
+        mapWidth: config.worldSize,
+        visitedPositions: this.tilesVisited,
+      });
+      for (const titleId of eligible) {
+        this.titles.earnTitle(titleId);
+      }
+    }
 
     // Check starvation
     if (this.needs.hunger <= 0) {
@@ -128,7 +236,7 @@ export class NPC {
     // AI decision
     const perception = buildPerception(
       this, tileMap, objects, allNPCs, timeSystem, weatherSystem,
-      this.x, this.y, 1,
+      this.x, this.y, 1, config.craftInventoryThreshold,
     );
     const action = brain.decide(perception);
     this.currentAction = action.type;
@@ -151,7 +259,12 @@ export class NPC {
       }
     }
 
-    this.executeAction(tileMap, objects, config);
+    // Find trade partner for socializing (only when needed)
+    const tradePartner = (this.currentAction === 'SOCIALIZE' && this.targetNpcId)
+      ? allNPCs.find(n => n.id === this.targetNpcId && n.alive) ?? null
+      : null;
+
+    this.executeAction(tileMap, objects, config, tradePartner);
     this.moveAlongPath();
   }
 
@@ -162,45 +275,92 @@ export class NPC {
     nearbyNPCs: NPC[],
     tileMap: TileMap,
   ): void {
-    // Hunger drain
+    const isStorm = weather === 'storm';
+    const isRain = weather === 'rain';
+    const isNight = timeSystem.isNight();
+    const inShelter = this.isInShelter(tileMap);
+
+    // --- Hunger drain ---
+    // Fix 1 & 2: Moving costs more hunger; storms burn extra calories.
     let hungerDrain = config.hungerDrain;
-    if (this.isMoving) hungerDrain *= MOVING_HUNGER_MULTIPLIER;
-    if (weather === 'storm' || weather === 'snow') hungerDrain *= 2;
+    if (this.isMoving) hungerDrain *= 1.5;
+    if (isStorm || weather === 'snow') hungerDrain *= config.stormHungerMultiplier;
     this.needs.hunger = clamp(this.needs.hunger - hungerDrain, 0, 1);
 
-    // Energy drain
-    let energyDrain = config.energyDrain;
-    if (this.isMoving) energyDrain *= 1.5;
-    if (this.currentAction === 'REST') energyDrain *= REST_ENERGY_FACTOR;
-    if (timeSystem.isNight()) energyDrain *= config.nightEnergyMultiplier;
-    this.needs.energy = clamp(this.needs.energy - energyDrain, 0, 1);
+    // --- Energy drain ---
+    // Fix 1: Significant drain while moving (at least 0.006/tick); idle still
+    // drains (0.003/tick minimum). Night × 1.5, storm × 1.8. REST recovery is
+    // +0.015/tick standing, +0.03/tick in shelter — slow enough to cost time.
+    let energyDrain: number;
+    if (this.currentAction === 'REST') {
+      // REST provides net recovery instead of drain
+      const restRecovery = inShelter ? 0.03 : 0.015;
+      this.needs.energy = clamp(this.needs.energy + restRecovery, 0, 1);
+      energyDrain = 0; // skip normal drain path
+    } else {
+      energyDrain = this.isMoving
+        ? config.energyDrain * MOVING_ENERGY_MULTIPLIER
+        : Math.max(IDLE_ENERGY_DRAIN_BASE, config.energyDrain * 0.6);
+      if (isNight) energyDrain *= config.nightEnergyMultiplier;
+      if (isStorm) energyDrain *= config.stormEnergyMultiplier;
+      // Fix 5: Social isolation increases energy drain
+      if (this.needs.social < config.socialDebuffThreshold && nearbyNPCs.length === 0) {
+        energyDrain *= config.socialIsolationEnergyMultiplier;
+      }
+      this.needs.energy = clamp(this.needs.energy - energyDrain, 0, 1);
+    }
 
-    // Social drain
+    // --- Social drain ---
+    // Fix 5: Drains when no NPC within socialRange; recovers when nearby NPCs.
     if (nearbyNPCs.length === 0) {
       this.needs.social = clamp(this.needs.social - config.socialDrain, 0, 1);
     }
 
-    // Curiosity drain: when in same area for too long
+    // --- Curiosity drain ---
+    // Drains when NPC is on already-visited tiles. staleAreaTicks tracks
+    // consecutive ticks on familiar ground; resets when a new tile is visited.
+    // Boredom acceleration: 2× after boredomAccelTicks, 3× after boredomSevereTicks.
     const tileKey = `${Math.floor(this.x)},${Math.floor(this.y)}`;
-    if (this.tilesVisited.has(tileKey) && this.age > config.curiosityStaleTicks) {
-      this.needs.curiosity = clamp(this.needs.curiosity - config.curiosityDrain, 0, 1);
+    if (this.tilesVisited.has(tileKey)) {
+      this.staleAreaTicks++;
+      if (this.staleAreaTicks > config.curiosityStaleTicks) {
+        let curiosityMultiplier = 1;
+        if (this.staleAreaTicks > config.boredomSevereTicks) {
+          curiosityMultiplier = 3;
+        } else if (this.staleAreaTicks > config.boredomAccelTicks) {
+          curiosityMultiplier = 2;
+        }
+        this.needs.curiosity = clamp(
+          this.needs.curiosity - config.curiosityDrain * curiosityMultiplier, 0, 1,
+        );
+      }
+    } else {
+      // New tile discovered — reset stale area counter
+      this.staleAreaTicks = 0;
     }
 
-    // Safety
-    if (weather === 'storm') {
+    // --- Safety drain ---
+    // Fix 2: Storm drops safety 0.04/tick, rain 0.01/tick, night outdoors
+    // 0.02/tick. Night + storm stacks to 0.06/tick.
+    if (isStorm) {
       this.needs.safety = clamp(this.needs.safety - config.stormSafetyPenalty, 0, 1);
     }
-    if (timeSystem.isNight() && !this.isInShelter(tileMap)) {
-      this.needs.safety = clamp(this.needs.safety - 0.03, 0, 1);
+    if (isRain && !isStorm) {
+      this.needs.safety = clamp(this.needs.safety - config.rainSafetyPenalty, 0, 1);
+    }
+    if (isNight && !inShelter) {
+      this.needs.safety = clamp(this.needs.safety - config.nightSafetyPenalty, 0, 1);
     }
 
-    // Safety recovery in shelter or daytime
-    if (!timeSystem.isNight() || this.isInShelter(tileMap)) {
-      this.needs.safety = clamp(this.needs.safety + config.safetyRecovery, 0, 1);
+    // Safety recovery in shelter or calm daytime
+    if (!isNight || inShelter) {
+      if (!isStorm) {
+        this.needs.safety = clamp(this.needs.safety + config.safetyRecovery, 0, 1);
+      }
     }
   }
 
-  private executeAction(tileMap: TileMap, objects: WorldObjectManager, config: WorldConfig): void {
+  private executeAction(tileMap: TileMap, objects: WorldObjectManager, config: WorldConfig, tradePartner: NPC | null): void {
     this.actionTimer++;
 
     switch (this.currentAction) {
@@ -209,9 +369,11 @@ export class NPC {
           // Try to harvest a nearby object
           const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
           if (obj && obj.type === ObjectType.BerryBush) {
-            const harvested = objects.harvestObject(obj.id);
+            const harvested = objects.harvestObject(obj.id, config.foodRespawnTicks);
             if (harvested) {
-              this.needs.hunger = clamp(this.needs.hunger + 0.3, 0, 1);
+              const bonus = getSkillBonus(this.skills, 'foraging');
+              this.needs.hunger = clamp(this.needs.hunger + 0.3 * bonus, 0, 1);
+              grantSkillXP(this.skills, 'foraging');
               this.memory.addMemory({
                 type: 'found_food',
                 tick: this.age,
@@ -227,23 +389,49 @@ export class NPC {
         break;
       }
       case 'REST': {
-        let recovery = 0.02;
-        if (this.isInShelter(tileMap)) recovery *= 2;
-        this.needs.energy = clamp(this.needs.energy + recovery, 0, 1);
+        // REST recovery is handled in updateNeeds to ensure consistent
+        // drain/recovery ordering each tick. No additional recovery here.
+        // Update fatigue during rest
+        this.fatigue.rest(this.isInShelter(tileMap));
         break;
       }
       case 'SOCIALIZE': {
+        const socialBonus = getSkillBonus(this.skills, 'socializing');
         this.needs.social = clamp(
-          this.needs.social + config.socialRecovery,
+          this.needs.social + config.socialRecovery * socialBonus,
           0, 1,
         );
+        grantSkillXP(this.skills, 'socializing');
+        this.reputation.addReputation(REPUTATION_PER_SOCIAL, 'socializing');
+        if (this.targetNpcId) {
+          this.relationships.interact(this.targetNpcId, this.age);
+          // Attempt trade with socializing partner
+          if (tradePartner) {
+            const affinity = this.relationships.getRelationship(this.targetNpcId)?.affinity ?? 0;
+            const trade = evaluateTrade(
+              this.inventory, this.needs,
+              tradePartner.inventory, tradePartner.needs,
+              affinity,
+            );
+            if (trade.occurred) {
+              executeTrade(this.inventory, tradePartner.inventory, trade);
+              this.reputation.addReputation(REPUTATION_PER_TRADE, 'trading');
+            }
+          }
+        }
         break;
       }
       case 'EXPLORE': {
+        // Fix 4: New tile discovery gives configurable curiosity reward.
+        // Discovering a resource location gives a stronger reward.
         const tileKey = `${Math.floor(this.x)},${Math.floor(this.y)}`;
         if (!this.tilesVisited.has(tileKey)) {
-          this.needs.curiosity = clamp(this.needs.curiosity + 0.2, 0, 1);
+          // Check if there's a resource here for the stronger reward
+          const obj = objects.getObjectAt(Math.floor(this.x), Math.floor(this.y));
+          const reward = obj ? config.curiosityNewResourceReward : config.curiosityNewTileReward;
+          this.needs.curiosity = clamp(this.needs.curiosity + reward, 0, 1);
           this.tilesVisited.add(tileKey);
+          grantSkillXP(this.skills, 'exploring');
           this.memory.addMemory({
             type: 'discovered_area',
             tick: this.age,
@@ -269,6 +457,69 @@ export class NPC {
       }
       case 'IDLE': {
         this.needs.safety = clamp(this.needs.safety + 0.005, 0, 1);
+        break;
+      }
+      case 'GATHER': {
+        if (this.actionTimer >= config.gatherTicks) {
+          const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
+          if (obj) {
+            if ((obj.type === ObjectType.OakTree || obj.type === ObjectType.PineTree || obj.type === ObjectType.BirchTree)
+                && obj.state !== 'depleted') {
+              addResource(this.inventory, 'wood', 1);
+              grantSkillXP(this.skills, 'building');
+              this.memory.addMemory({
+                type: 'gathered_resource',
+                tick: this.age,
+                x: obj.x,
+                y: obj.y,
+                significance: 0.4,
+                detail: 'wood',
+              });
+            } else if (obj.type === ObjectType.Rock && obj.state !== 'depleted') {
+              addResource(this.inventory, 'stone', 1);
+              grantSkillXP(this.skills, 'building');
+              this.memory.addMemory({
+                type: 'gathered_resource',
+                tick: this.age,
+                x: obj.x,
+                y: obj.y,
+                significance: 0.4,
+                detail: 'stone',
+              });
+            }
+          }
+          this.actionTimer = 0;
+          this.currentAction = 'IDLE';
+        }
+        break;
+      }
+      case 'CRAFT': {
+        if (this.actionTimer >= config.craftTicks) {
+          const recipes = getAvailableRecipes(this.inventory);
+          if (recipes.length > 0) {
+            const recipe = recipes[0];
+            if (craftItem(this.inventory, recipe)) {
+              objects.addObjectAt(recipe.result, Math.floor(this.x), Math.floor(this.y));
+              grantSkillXP(this.skills, 'crafting');
+              this.reputation.addReputation(REPUTATION_PER_CRAFT, 'crafting');
+              this.craftCount++;
+              this.memory.addMemory({
+                type: 'crafted_item',
+                tick: this.age,
+                x: Math.floor(this.x),
+                y: Math.floor(this.y),
+                significance: 0.9,
+                detail: recipe.name,
+              });
+              // Claim territory near first craft
+              if (!this.territory.hasHome()) {
+                this.territory.claimHome(Math.floor(this.x), Math.floor(this.y), this.age);
+              }
+            }
+          }
+          this.actionTimer = 0;
+          this.currentAction = 'IDLE';
+        }
         break;
       }
     }

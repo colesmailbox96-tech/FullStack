@@ -4,57 +4,121 @@ import type { Action, ActionType } from './Action';
 import { ObjectType } from '../world/WorldObject';
 import { TileType } from '../world/TileMap';
 import { distance } from '../utils/Math';
+import { applyTraitModifier } from '../entities/Personality';
+import { getAvailableRecipes } from '../engine/Crafting';
+import { totalResources } from '../entities/Inventory';
 
+/**
+ * Behavior tree with tiered priority structure (Fix 6):
+ *
+ * ROOT (Selector)
+ * ├── 1. EMERGENCY SURVIVE: hunger < 0.10 → FORAGE
+ * ├── 2. EMERGENCY SHELTER: safety < 0.15 → SEEK_SHELTER
+ * ├── 3. EMERGENCY REST: energy < 0.10 → REST
+ * ├── 4. MODERATE SURVIVE: hunger < 0.25 → FORAGE
+ * ├── 5. MODERATE SHELTER: safety < 0.35 OR (storm AND outdoors) → SEEK_SHELTER
+ * ├── 6. MODERATE REST: energy < 0.30 → REST
+ * ├── 7. SOCIAL NEED: social < 0.30 AND npc within 15 tiles → SOCIALIZE
+ * ├── 8. CURIOSITY: curiosity < 0.30 → EXPLORE
+ * ├── 9. PROACTIVE FORAGE: hunger < 0.50 → FORAGE
+ * ├── 10. PROACTIVE REST: energy < 0.50 → REST
+ * ├── 11. PROACTIVE SOCIAL: social < 0.50 AND npc within 10 tiles → SOCIALIZE
+ * ├── 12. CRAFT: has enough resources for a recipe → CRAFT
+ * ├── 13. GATHER: gatherable objects nearby AND inventory not full → GATHER
+ * └── 14. DEFAULT: EXPLORE
+ */
 export class BehaviorTreeBrain implements IBrain {
   decide(perception: Perception): Action {
-    const { needs, nearbyTiles, nearbyObjects, nearbyNPCs, weather, relevantMemories } = perception;
+    const { needs, nearbyNPCs, weather, personality } = perception;
 
-    // 1. SURVIVE: hunger < 0.15
-    if (needs.hunger < 0.15) {
+    // Apply personality modifiers to thresholds.
+    // Higher trait = higher threshold = more eager to act on that need.
+    // Bravery inversely affects safety thresholds (brave = less fearful).
+    const fearfulness = 1 - personality.bravery;
+    const hungerEmergency = applyTraitModifier(0.10, personality.industriousness);
+    const hungerModerate = applyTraitModifier(0.25, personality.industriousness);
+    const hungerProactive = applyTraitModifier(0.50, personality.industriousness);
+    const safetyEmergency = applyTraitModifier(0.15, fearfulness);
+    const safetyModerate = applyTraitModifier(0.35, fearfulness);
+    const socialNeed = applyTraitModifier(0.30, personality.sociability);
+    const socialProactive = applyTraitModifier(0.50, personality.sociability);
+    const curiosityNeed = applyTraitModifier(0.30, personality.curiosity);
+
+    // 1. EMERGENCY SURVIVE: hunger critically low
+    if (needs.hunger < hungerEmergency) {
       const foodAction = this.findFood(perception);
       if (foodAction) return foodAction;
     }
 
-    // 2. SHELTER: safety < 0.3 OR storm and not sheltered
-    if (needs.safety < 0.3 || (weather === 'storm' && !this.isNearShelter(perception))) {
+    // 2. EMERGENCY SHELTER: safety critically low
+    if (needs.safety < safetyEmergency) {
       const shelterAction = this.findShelter(perception);
       if (shelterAction) return shelterAction;
     }
 
-    // 3. REST: energy < 0.2
-    if (needs.energy < 0.2) {
+    // 3. EMERGENCY REST: energy < 0.10
+    if (needs.energy < 0.10) {
       return this.makeRest(perception);
     }
 
-    // 4. SOCIALIZE: social < 0.3 and NPC within 15
-    if (needs.social < 0.3 && nearbyNPCs.length > 0) {
+    // 4. MODERATE SURVIVE: hunger moderately low
+    if (needs.hunger < hungerModerate) {
+      const foodAction = this.findFood(perception);
+      if (foodAction) return foodAction;
+    }
+
+    // 5. MODERATE SHELTER: safety below threshold OR (storm AND outdoors)
+    if (needs.safety < safetyModerate || (weather === 'storm' && !this.isNearShelter(perception))) {
+      const shelterAction = this.findShelter(perception);
+      if (shelterAction) return shelterAction;
+    }
+
+    // 6. MODERATE REST: energy < 0.30
+    if (needs.energy < 0.30) {
+      return this.makeRest(perception);
+    }
+
+    // 7. SOCIAL NEED: social below threshold AND npc within 15 tiles
+    if (needs.social < socialNeed && nearbyNPCs.length > 0) {
       const closest = this.findClosestNPC(perception);
       if (closest && distance(perception.cameraX, perception.cameraY, closest.x, closest.y) < 15) {
         return { type: 'SOCIALIZE', targetX: closest.x, targetY: closest.y, targetNpcId: closest.id };
       }
     }
 
-    // 5. EXPLORE: curiosity < 0.3
-    if (needs.curiosity < 0.3) {
+    // 8. CURIOSITY: curiosity below threshold
+    if (needs.curiosity < curiosityNeed) {
       return this.findExploreTarget(perception);
     }
 
-    // 6. MAINTAIN
-    if (needs.hunger < 0.5) {
+    // 9. PROACTIVE FORAGE: hunger below proactive threshold
+    if (needs.hunger < hungerProactive) {
       const foodAction = this.findFood(perception);
       if (foodAction) return foodAction;
     }
-    if (needs.energy < 0.5) {
+
+    // 10. PROACTIVE REST: energy < 0.50
+    if (needs.energy < 0.50) {
       return this.makeRest(perception);
     }
-    if (needs.social < 0.5 && nearbyNPCs.length > 0) {
+
+    // 11. PROACTIVE SOCIAL: social below proactive threshold AND npc within 10 tiles
+    if (needs.social < socialProactive && nearbyNPCs.length > 0) {
       const closest = this.findClosestNPC(perception);
-      if (closest) {
+      if (closest && distance(perception.cameraX, perception.cameraY, closest.x, closest.y) < 10) {
         return { type: 'SOCIALIZE', targetX: closest.x, targetY: closest.y, targetNpcId: closest.id };
       }
     }
 
-    // 7. DEFAULT: explore random direction
+    // 12. CRAFT: has enough resources for a recipe
+    const craftAction = this.findCraftOpportunity(perception);
+    if (craftAction) return craftAction;
+
+    // 13. GATHER: gatherable objects nearby and inventory not full
+    const gatherAction = this.findGatherTarget(perception);
+    if (gatherAction) return gatherAction;
+
+    // 14. DEFAULT: EXPLORE (not IDLE — when nothing else is needed, go see new things)
     return this.findExploreTarget(perception);
   }
 
@@ -159,5 +223,51 @@ export class BehaviorTreeBrain implements IBrain {
       return { type: 'EXPLORE', targetX: candidates[idx].x, targetY: candidates[idx].y };
     }
     return { type: 'IDLE', targetX: Math.round(perception.cameraX), targetY: Math.round(perception.cameraY) };
+  }
+
+  private findGatherTarget(perception: Perception): Action | null {
+    if (totalResources(perception.inventory) >= 10) return null;
+
+    const gatherables = perception.nearbyObjects.filter(
+      (obj: ObjectInfo) =>
+        obj.state !== 'depleted' &&
+        (obj.type === ObjectType.OakTree ||
+         obj.type === ObjectType.PineTree ||
+         obj.type === ObjectType.BirchTree ||
+         obj.type === ObjectType.Rock)
+    );
+
+    if (gatherables.length === 0) return null;
+
+    // Prefer the resource type the NPC has less of
+    const needWood = perception.inventory.wood < perception.inventory.stone;
+    const preferred = gatherables.filter((obj: ObjectInfo) => {
+      if (needWood) {
+        return obj.type === ObjectType.OakTree || obj.type === ObjectType.PineTree || obj.type === ObjectType.BirchTree;
+      }
+      return obj.type === ObjectType.Rock;
+    });
+
+    const candidates = preferred.length > 0 ? preferred : gatherables;
+    const closest = candidates.reduce((a: ObjectInfo, b: ObjectInfo) =>
+      distance(perception.cameraX, perception.cameraY, a.x, a.y) <
+      distance(perception.cameraX, perception.cameraY, b.x, b.y) ? a : b
+    );
+
+    return { type: 'GATHER', targetX: closest.x, targetY: closest.y };
+  }
+
+  private findCraftOpportunity(perception: Perception): Action | null {
+    const recipes = getAvailableRecipes(perception.inventory);
+    if (recipes.length === 0) return null;
+
+    const craftThreshold = applyTraitModifier(perception.craftInventoryThreshold, perception.personality.craftiness);
+    if (totalResources(perception.inventory) < craftThreshold) return null;
+
+    return {
+      type: 'CRAFT',
+      targetX: Math.round(perception.cameraX),
+      targetY: Math.round(perception.cameraY),
+    };
   }
 }

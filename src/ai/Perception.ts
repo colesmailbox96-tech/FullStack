@@ -3,6 +3,8 @@ import { ObjectType } from '../world/WorldObject';
 import type { ActionType } from './Action';
 import type { Needs } from '../entities/Needs';
 import type { Memory } from '../entities/Memory';
+import type { Personality } from '../entities/Personality';
+import type { Inventory } from '../entities/Inventory';
 import type { WeatherState } from '../world/Weather';
 import type { NPC } from '../entities/NPC';
 import type { TileMap } from '../world/TileMap';
@@ -39,6 +41,8 @@ export interface Perception {
   nearbyObjects: ObjectInfo[];
   nearbyNPCs: NPCInfo[];
   needs: Needs;
+  personality: Personality;
+  inventory: Inventory;
   relevantMemories: Memory[];
   timeOfDay: number;
   weather: WeatherState;
@@ -47,6 +51,7 @@ export interface Perception {
   cameraX: number;
   cameraY: number;
   cameraZoom: number;
+  craftInventoryThreshold: number;
 }
 
 const PERCEPTION_RADIUS = 8;
@@ -61,6 +66,7 @@ export function buildPerception(
   cameraX: number,
   cameraY: number,
   cameraZoom: number,
+  craftInventoryThreshold: number = 5,
 ): Perception {
   const nearbyTiles: TileInfo[] = [];
   for (let dy = -PERCEPTION_RADIUS; dy <= PERCEPTION_RADIUS; dy++) {
@@ -105,6 +111,8 @@ export function buildPerception(
     nearbyObjects,
     nearbyNPCs,
     needs: { ...npc.needs },
+    personality: { ...npc.personality },
+    inventory: { ...npc.inventory },
     relevantMemories,
     timeOfDay: timeSystem.timeOfDay,
     weather: weather.current,
@@ -113,5 +121,6 @@ export function buildPerception(
     cameraX,
     cameraY,
     cameraZoom,
+    craftInventoryThreshold,
   };
 }

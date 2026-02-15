@@ -196,15 +196,29 @@ export class WorldObjectManager {
     }
   }
 
-  harvestObject(id: string): boolean {
+  harvestObject(id: string, respawnTicks: number = 400): boolean {
     const obj = this.objects.get(id);
     if (!obj || obj.state === 'depleted' || obj.resources <= 0) return false;
 
     obj.resources--;
     if (obj.resources <= 0) {
       obj.state = 'depleted';
-      obj.respawnTimer = 250; // will be ticked down in update()
+      obj.respawnTimer = respawnTicks;
     }
     return true;
+  }
+
+  addObjectAt(type: ObjectType, x: number, y: number): void {
+    const id = `obj_${this.nextId++}`;
+    this.objects.set(id, {
+      id,
+      type,
+      x,
+      y,
+      state: 'normal',
+      resources: 0,
+      respawnTimer: 0,
+      swayOffset: 0,
+    });
   }
 }

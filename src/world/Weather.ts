@@ -1,5 +1,6 @@
 import { Random } from '../utils/Random';
 import { Season } from './TimeSystem';
+import { WorldConfig } from '../engine/Config';
 
 export type WeatherState = 'clear' | 'cloudy' | 'rain' | 'storm' | 'snow' | 'fog';
 
@@ -14,12 +15,24 @@ const SEASON_WEIGHTS: Record<Season, SeasonWeights> = {
   winter: { clear: 15, cloudy: 25, rain: 10, storm: 10, snow: 30, fog: 10 },
 };
 
-function pickWeighted(rng: Random, weights: SeasonWeights): WeatherState {
+function pickWeighted(rng: Random, weights: SeasonWeights, minStormFrequency: number): WeatherState {
+  // Enforce minimum storm frequency: adjust weights so storm has at least
+  // minStormFrequency share of total weight.
+  const adjustedWeights = { ...weights };
   let total = 0;
-  for (const w of ALL_WEATHER) total += weights[w];
+  for (const w of ALL_WEATHER) total += adjustedWeights[w];
+  const stormPct = adjustedWeights.storm / total;
+  if (stormPct < minStormFrequency && minStormFrequency > 0) {
+    // Scale storm weight up to meet the minimum frequency
+    const targetStormWeight = (minStormFrequency * (total - adjustedWeights.storm)) / (1 - minStormFrequency);
+    adjustedWeights.storm = Math.max(adjustedWeights.storm, targetStormWeight);
+    total = 0;
+    for (const w of ALL_WEATHER) total += adjustedWeights[w];
+  }
+
   let roll = rng.next() * total;
   for (const w of ALL_WEATHER) {
-    roll -= weights[w];
+    roll -= adjustedWeights[w];
     if (roll <= 0) return w;
   }
   return 'clear';
@@ -39,16 +52,27 @@ export class Weather {
     this.windDirection = this.rng.next() * Math.PI * 2;
     this.windStrength = 0.2;
     this.intensity = 0;
-    this.transitionTimer = 200 + this.rng.nextInt(400);
+    // Transitions every 200-400 ticks to ensure storms occur often enough
+    // for meaningful training data generation.
+    this.transitionTimer = 200 + this.rng.nextInt(200);
   }
 
-  update(season: Season): void {
+  update(season: Season, config?: WorldConfig): void {
     this.transitionTimer--;
 
     if (this.transitionTimer <= 0) {
       const weights = SEASON_WEIGHTS[season];
-      this.current = pickWeighted(this.rng, weights);
-      this.transitionTimer = 200 + this.rng.nextInt(400);
+      const minStormFreq = config?.stormFrequency ?? 0.08;
+      this.current = pickWeighted(this.rng, weights, minStormFreq);
+
+      // Fix 2: Storm duration must be at least minStormDuration ticks.
+      // Non-storm weather transitions every 200-400 ticks.
+      const minDuration = config?.minStormDuration ?? 150;
+      if (this.current === 'storm') {
+        this.transitionTimer = Math.max(minDuration, 200 + this.rng.nextInt(200));
+      } else {
+        this.transitionTimer = 200 + this.rng.nextInt(200);
+      }
 
       // Randomize wind on transition
       this.windDirection = this.rng.next() * Math.PI * 2;
