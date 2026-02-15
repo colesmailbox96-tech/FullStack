@@ -37,6 +37,13 @@ export class Camera {
     this.targetY += dy;
   }
 
+  panImmediate(dx: number, dy: number): void {
+    this.targetX += dx;
+    this.targetY += dy;
+    this.x = this.targetX;
+    this.y = this.targetY;
+  }
+
   setZoom(zoom: number): void {
     this.targetZoom = clamp(zoom, ZOOM_MIN, ZOOM_MAX);
   }
