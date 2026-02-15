@@ -6,21 +6,24 @@ import { TimeSystem } from '../world/TimeSystem';
 import type { WeatherState, Weather } from '../world/Weather';
 import { WorldConfig } from '../engine/Config';
 import { NPC } from './NPC';
+import { LineageTracker } from './Lineage';
 
 export class NPCManager {
   private npcs: NPC[];
   private rng: Random;
   private nextId: number;
+  readonly lineage: LineageTracker;
 
   constructor(seed: number) {
     this.npcs = [];
     this.rng = new Random(seed);
     this.nextId = 1;
+    this.lineage = new LineageTracker();
   }
 
   spawnInitial(count: number, tileMap: TileMap, config: WorldConfig): void {
     for (let i = 0; i < count; i++) {
-      this.spawnNPC(tileMap, config);
+      this.spawnNPC(tileMap, config, true);
     }
   }
 
@@ -50,7 +53,7 @@ export class NPCManager {
     return this.npcs.find(npc => npc.id === id) ?? null;
   }
 
-  private spawnNPC(tileMap: TileMap, config: WorldConfig): void {
+  private spawnNPC(tileMap: TileMap, config: WorldConfig, isOriginal: boolean = false): void {
     const maxAttempts = 100;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const x = this.rng.nextInt(config.worldSize);
@@ -58,7 +61,9 @@ export class NPCManager {
       if (tileMap.isWalkable(x, y)) {
         const id = `npc_${this.nextId++}`;
         const npc = new NPC(id, x, y, this.rng, config);
+        npc.isOriginal = isOriginal;
         this.npcs.push(npc);
+        this.lineage.registerOriginal(id, npc.age);
         return;
       }
     }
@@ -92,6 +97,8 @@ export class NPCManager {
             const id = `npc_${this.nextId++}`;
             const child = new NPC(id, cx, cy, this.rng, config);
             this.npcs.push(child);
+            // Register birth in lineage system
+            this.lineage.registerBirth(id, a.id, b.id, child.age);
             // Reset parents' social bond timers by reducing social slightly
             a.needs.social *= 0.5;
             b.needs.social *= 0.5;

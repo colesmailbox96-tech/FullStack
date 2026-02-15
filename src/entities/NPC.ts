@@ -17,6 +17,14 @@ import { getAvailableRecipes, craftItem } from '../engine/Crafting';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
 import { buildPerception } from '../ai/Perception';
+import { generateNPCName } from './Names';
+import { FatigueTracker } from './Fatigue';
+import { StatusEffectManager, evaluateStatusEffects } from './StatusEffects';
+import { TerritorySystem } from './Territory';
+import { ReputationSystem, REPUTATION_PER_TRADE, REPUTATION_PER_CRAFT, REPUTATION_PER_SOCIAL } from './Reputation';
+import { TitleTracker, checkTitleEligibility } from './Titles';
+import { determineMood, type MoodEmote } from './MoodEmotes';
+import { getAgeTier, type AgeTierType } from './AgeTier';
 
 export interface NPCAppearance {
   skinTone: number;
@@ -36,6 +44,7 @@ const brain = new BehaviorTreeBrain();
 
 export class NPC {
   readonly id: string;
+  readonly name: string;
   x: number;
   y: number;
   prevX: number;
@@ -67,6 +76,27 @@ export class NPC {
   deathAnimation: number;
   idlePhase: number;
 
+  /** Feature: Fatigue system tracking work exhaustion */
+  fatigue: FatigueTracker;
+  /** Feature: Status effects (buffs/debuffs) */
+  statusEffects: StatusEffectManager;
+  /** Feature: Territory/home system */
+  territory: TerritorySystem;
+  /** Feature: Reputation system */
+  reputation: ReputationSystem;
+  /** Feature: Title tracking */
+  titles: TitleTracker;
+  /** Feature: Current mood emote */
+  currentMood: MoodEmote;
+  /** Feature: Current age tier */
+  ageTier: AgeTierType;
+  /** Whether this NPC was part of the original spawn */
+  isOriginal: boolean;
+  /** Count of items crafted by this NPC */
+  craftCount: number;
+  /** Whether this NPC has survived a storm */
+  survivedStorm: boolean;
+
   private rng: Random;
 
   constructor(id: string, x: number, y: number, rng: Random, config: WorldConfig) {
@@ -82,6 +112,7 @@ export class NPC {
     this.relationships = new RelationshipSystem();
     this.inventory = createEmptyInventory();
     this.skills = createDefaultSkills();
+    this.name = generateNPCName(this.personality, () => rng.next());
     this.appearance = {
       skinTone: rng.nextInt(4),
       hairColor: rng.nextInt(6),
@@ -107,6 +138,18 @@ export class NPC {
     this.spawnAnimation = 0;
     this.deathAnimation = 0;
     this.idlePhase = rng.next() * Math.PI * 2;
+
+    // Initialize new feature systems
+    this.fatigue = new FatigueTracker();
+    this.statusEffects = new StatusEffectManager();
+    this.territory = new TerritorySystem();
+    this.reputation = new ReputationSystem();
+    this.titles = new TitleTracker();
+    this.currentMood = determineMood(this.needs, this.currentAction);
+    this.ageTier = getAgeTier(this.age);
+    this.isOriginal = false;
+    this.craftCount = 0;
+    this.survivedStorm = false;
   }
 
   update(
@@ -127,10 +170,57 @@ export class NPC {
     this.spawnAnimation = clamp(this.spawnAnimation + 0.05, 0, 1);
     this.idlePhase += 0.05;
 
+    // Update age tier
+    this.ageTier = getAgeTier(this.age);
+
     const nearbyNPCs = this.getNearbyNPCs(allNPCs, config.socialRange);
     this.updateNeeds(config, weather, timeSystem, nearbyNPCs, tileMap);
     this.memory.update(config.memoryDecayRate);
     this.relationships.update(config.memoryDecayRate * 0.5);
+
+    // Update status effects
+    const inShelter = this.isInShelter(tileMap);
+    const isStorm = weather === 'storm';
+    const isNight = timeSystem.isNight();
+    const effectChanges = evaluateStatusEffects(
+      this.needs, inShelter, nearbyNPCs.length, isStorm, isNight,
+    );
+    for (const eff of effectChanges.add) {
+      this.statusEffects.addEffect(eff, 100);
+    }
+    for (const eff of effectChanges.remove) {
+      this.statusEffects.removeEffect(eff);
+    }
+    this.statusEffects.update();
+
+    // Update fatigue
+    this.fatigue.addWorkFatigue(this.currentAction);
+
+    // Update territory familiarity
+    this.territory.updateFamiliarity(this.x, this.y);
+
+    // Update mood
+    this.currentMood = determineMood(this.needs, this.currentAction);
+
+    // Check title eligibility periodically (every 120 ticks)
+    if (this.age % 120 === 0) {
+      const friendCount = this.relationships.getRelationships().filter(r => r.affinity >= 0.4).length;
+      const eligible = checkTitleEligibility({
+        age: this.age,
+        tilesVisited: this.tilesVisited.size,
+        craftCount: this.craftCount,
+        friendshipCount: friendCount,
+        foragingSkill: this.skills.foraging,
+        totalResources: totalResources(this.inventory),
+        isOriginal: this.isOriginal,
+        survivedStorm: this.survivedStorm,
+        mapWidth: config.worldSize,
+        visitedPositions: this.tilesVisited,
+      });
+      for (const titleId of eligible) {
+        this.titles.earnTitle(titleId);
+      }
+    }
 
     // Check starvation
     if (this.needs.hunger <= 0) {
@@ -301,6 +391,8 @@ export class NPC {
       case 'REST': {
         // REST recovery is handled in updateNeeds to ensure consistent
         // drain/recovery ordering each tick. No additional recovery here.
+        // Update fatigue during rest
+        this.fatigue.rest(this.isInShelter(tileMap));
         break;
       }
       case 'SOCIALIZE': {
@@ -310,6 +402,7 @@ export class NPC {
           0, 1,
         );
         grantSkillXP(this.skills, 'socializing');
+        this.reputation.addReputation(REPUTATION_PER_SOCIAL, 'socializing');
         if (this.targetNpcId) {
           this.relationships.interact(this.targetNpcId, this.age);
           // Attempt trade with socializing partner
@@ -322,6 +415,7 @@ export class NPC {
             );
             if (trade.occurred) {
               executeTrade(this.inventory, tradePartner.inventory, trade);
+              this.reputation.addReputation(REPUTATION_PER_TRADE, 'trading');
             }
           }
         }
@@ -407,6 +501,8 @@ export class NPC {
             if (craftItem(this.inventory, recipe)) {
               objects.addObjectAt(recipe.result, Math.floor(this.x), Math.floor(this.y));
               grantSkillXP(this.skills, 'crafting');
+              this.reputation.addReputation(REPUTATION_PER_CRAFT, 'crafting');
+              this.craftCount++;
               this.memory.addMemory({
                 type: 'crafted_item',
                 tick: this.age,
@@ -415,6 +511,10 @@ export class NPC {
                 significance: 0.9,
                 detail: recipe.name,
               });
+              // Claim territory near first craft
+              if (!this.territory.hasHome()) {
+                this.territory.claimHome(Math.floor(this.x), Math.floor(this.y), this.age);
+              }
             }
           }
           this.actionTimer = 0;
