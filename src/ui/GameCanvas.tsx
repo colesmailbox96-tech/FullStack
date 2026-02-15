@@ -133,11 +133,9 @@ const GameCanvas: React.FC = () => {
         }
       }
 
-      // Update audio
+      // Update audio (init lazily on first interaction)
       if (state) {
-        if (!audioRef.current) {
-          audio.init();
-        }
+        audio.init();
         audio.setVolume(volume);
         audio.update(state.timeSystem.timeOfDay, state.weather.current, state.tick);
       }

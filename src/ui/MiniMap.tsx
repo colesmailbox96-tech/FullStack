@@ -74,6 +74,7 @@ function drawMinimap(
 
 const MiniMap: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mobileCanvasRef = useRef<HTMLCanvasElement>(null);
   const state = useSimulation(s => s.state);
   const cameraX = useSimulation(s => s.cameraX);
   const cameraY = useSimulation(s => s.cameraY);
@@ -82,14 +83,25 @@ const MiniMap: React.FC = () => {
 
   // Repaint minimap
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !state) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!state) return;
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
 
-    const size = canvas.width;
-    // Use window inner dimensions as approximation for main canvas size
-    drawMinimap(ctx, state.tileMap, state.npcs, cameraX, cameraY, cameraZoom, window.innerWidth, window.innerHeight, size);
+    const desktopCanvas = canvasRef.current;
+    if (desktopCanvas) {
+      const ctx = desktopCanvas.getContext('2d');
+      if (ctx) {
+        drawMinimap(ctx, state.tileMap, state.npcs, cameraX, cameraY, cameraZoom, winW, winH, desktopCanvas.width);
+      }
+    }
+
+    const mobileCanvas = mobileCanvasRef.current;
+    if (mobileCanvas) {
+      const ctx = mobileCanvas.getContext('2d');
+      if (ctx) {
+        drawMinimap(ctx, state.tileMap, state.npcs, cameraX, cameraY, cameraZoom, winW, winH, mobileCanvas.width);
+      }
+    }
   }, [state, cameraX, cameraY, cameraZoom]);
 
   const handleClick = useCallback(
@@ -130,6 +142,7 @@ const MiniMap: React.FC = () => {
       <div className="sm:hidden absolute top-12 left-2 z-20">
         <div className="bg-black/70 backdrop-blur-sm rounded border border-gray-700/50 p-1">
           <canvas
+            ref={mobileCanvasRef}
             width={MINIMAP_SIZE_MOBILE}
             height={MINIMAP_SIZE_MOBILE}
             onClick={handleClick}
