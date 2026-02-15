@@ -128,10 +128,11 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
       });
     }
 
-    // Log NPC deaths
+    // Log NPC deaths — detect NPCs in their first tick of death animation
+    const DEATH_ANIMATION_FIRST_TICK = 0.05;
     const currentAlive = npcManager.getAliveNPCs();
     if (currentAlive.length < prevAliveCount) {
-      const dead = npcManager.getNPCs().filter(n => !n.alive && n.deathAnimation <= 0.05);
+      const dead = npcManager.getNPCs().filter(n => !n.alive && n.deathAnimation <= DEATH_ANIMATION_FIRST_TICK);
       for (const npc of dead) {
         const idNum = npc.id.replace(/\D/g, '') || npc.id;
         eventLog.addEvent({

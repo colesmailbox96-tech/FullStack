@@ -29,11 +29,13 @@ export class BehaviorTreeBrain implements IBrain {
 
     // Apply personality modifiers to thresholds.
     // Higher trait = higher threshold = more eager to act on that need.
+    // Bravery inversely affects safety thresholds (brave = less fearful).
+    const fearfulness = 1 - personality.bravery;
     const hungerEmergency = applyTraitModifier(0.10, personality.industriousness);
     const hungerModerate = applyTraitModifier(0.25, personality.industriousness);
     const hungerProactive = applyTraitModifier(0.50, personality.industriousness);
-    const safetyEmergency = applyTraitModifier(0.15, 1 - personality.bravery);
-    const safetyModerate = applyTraitModifier(0.35, 1 - personality.bravery);
+    const safetyEmergency = applyTraitModifier(0.15, fearfulness);
+    const safetyModerate = applyTraitModifier(0.35, fearfulness);
     const socialNeed = applyTraitModifier(0.30, personality.sociability);
     const socialProactive = applyTraitModifier(0.50, personality.sociability);
     const curiosityNeed = applyTraitModifier(0.30, personality.curiosity);
