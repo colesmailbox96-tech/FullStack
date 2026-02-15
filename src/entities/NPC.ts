@@ -8,6 +8,7 @@ import type { WeatherState, Weather } from '../world/Weather';
 import { WorldConfig } from '../engine/Config';
 import { Needs, createDefaultNeeds } from './Needs';
 import { MemorySystem } from './Memory';
+import { Personality, createRandomPersonality } from './Personality';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
 import { buildPerception } from '../ai/Perception';
@@ -36,6 +37,7 @@ export class NPC {
   prevY: number;
   needs: Needs;
   memory: MemorySystem;
+  personality: Personality;
   appearance: NPCAppearance;
   direction: Direction;
   isMoving: boolean;
@@ -68,6 +70,7 @@ export class NPC {
     this.rng = rng;
     this.needs = createDefaultNeeds(() => rng.next());
     this.memory = new MemorySystem(config.memoryCapacity);
+    this.personality = createRandomPersonality(() => rng.next());
     this.appearance = {
       skinTone: rng.nextInt(4),
       hairColor: rng.nextInt(6),

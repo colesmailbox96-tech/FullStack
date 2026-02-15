@@ -4,6 +4,7 @@ import type { Action, ActionType } from './Action';
 import { ObjectType } from '../world/WorldObject';
 import { TileType } from '../world/TileMap';
 import { distance } from '../utils/Math';
+import { applyTraitModifier } from '../entities/Personality';
 
 /**
  * Behavior tree with tiered priority structure (Fix 6):
@@ -24,16 +25,27 @@ import { distance } from '../utils/Math';
  */
 export class BehaviorTreeBrain implements IBrain {
   decide(perception: Perception): Action {
-    const { needs, nearbyNPCs, weather } = perception;
+    const { needs, nearbyNPCs, weather, personality } = perception;
 
-    // 1. EMERGENCY SURVIVE: hunger < 0.10
-    if (needs.hunger < 0.10) {
+    // Apply personality modifiers to thresholds.
+    // Higher trait = higher threshold = more eager to act on that need.
+    const hungerEmergency = applyTraitModifier(0.10, personality.industriousness);
+    const hungerModerate = applyTraitModifier(0.25, personality.industriousness);
+    const hungerProactive = applyTraitModifier(0.50, personality.industriousness);
+    const safetyEmergency = applyTraitModifier(0.15, 1 - personality.bravery);
+    const safetyModerate = applyTraitModifier(0.35, 1 - personality.bravery);
+    const socialNeed = applyTraitModifier(0.30, personality.sociability);
+    const socialProactive = applyTraitModifier(0.50, personality.sociability);
+    const curiosityNeed = applyTraitModifier(0.30, personality.curiosity);
+
+    // 1. EMERGENCY SURVIVE: hunger critically low
+    if (needs.hunger < hungerEmergency) {
       const foodAction = this.findFood(perception);
       if (foodAction) return foodAction;
     }
 
-    // 2. EMERGENCY SHELTER: safety < 0.15
-    if (needs.safety < 0.15) {
+    // 2. EMERGENCY SHELTER: safety critically low
+    if (needs.safety < safetyEmergency) {
       const shelterAction = this.findShelter(perception);
       if (shelterAction) return shelterAction;
     }
@@ -43,14 +55,14 @@ export class BehaviorTreeBrain implements IBrain {
       return this.makeRest(perception);
     }
 
-    // 4. MODERATE SURVIVE: hunger < 0.25
-    if (needs.hunger < 0.25) {
+    // 4. MODERATE SURVIVE: hunger moderately low
+    if (needs.hunger < hungerModerate) {
       const foodAction = this.findFood(perception);
       if (foodAction) return foodAction;
     }
 
-    // 5. MODERATE SHELTER: safety < 0.35 OR (storm AND outdoors)
-    if (needs.safety < 0.35 || (weather === 'storm' && !this.isNearShelter(perception))) {
+    // 5. MODERATE SHELTER: safety below threshold OR (storm AND outdoors)
+    if (needs.safety < safetyModerate || (weather === 'storm' && !this.isNearShelter(perception))) {
       const shelterAction = this.findShelter(perception);
       if (shelterAction) return shelterAction;
     }
@@ -60,21 +72,21 @@ export class BehaviorTreeBrain implements IBrain {
       return this.makeRest(perception);
     }
 
-    // 7. SOCIAL NEED: social < 0.30 AND npc within 15 tiles
-    if (needs.social < 0.30 && nearbyNPCs.length > 0) {
+    // 7. SOCIAL NEED: social below threshold AND npc within 15 tiles
+    if (needs.social < socialNeed && nearbyNPCs.length > 0) {
       const closest = this.findClosestNPC(perception);
       if (closest && distance(perception.cameraX, perception.cameraY, closest.x, closest.y) < 15) {
         return { type: 'SOCIALIZE', targetX: closest.x, targetY: closest.y, targetNpcId: closest.id };
       }
     }
 
-    // 8. CURIOSITY: curiosity < 0.30
-    if (needs.curiosity < 0.30) {
+    // 8. CURIOSITY: curiosity below threshold
+    if (needs.curiosity < curiosityNeed) {
       return this.findExploreTarget(perception);
     }
 
-    // 9. PROACTIVE FORAGE: hunger < 0.50
-    if (needs.hunger < 0.50) {
+    // 9. PROACTIVE FORAGE: hunger below proactive threshold
+    if (needs.hunger < hungerProactive) {
       const foodAction = this.findFood(perception);
       if (foodAction) return foodAction;
     }
@@ -84,8 +96,8 @@ export class BehaviorTreeBrain implements IBrain {
       return this.makeRest(perception);
     }
 
-    // 11. PROACTIVE SOCIAL: social < 0.50 AND npc within 10 tiles
-    if (needs.social < 0.50 && nearbyNPCs.length > 0) {
+    // 11. PROACTIVE SOCIAL: social below proactive threshold AND npc within 10 tiles
+    if (needs.social < socialProactive && nearbyNPCs.length > 0) {
       const closest = this.findClosestNPC(perception);
       if (closest && distance(perception.cameraX, perception.cameraY, closest.x, closest.y) < 10) {
         return { type: 'SOCIALIZE', targetX: closest.x, targetY: closest.y, targetNpcId: closest.id };
