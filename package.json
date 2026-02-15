@@ -9,7 +9,11 @@
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:ml": "npx tsx src/testing/run_tests.ts",
+    "test:quality": "npx tsx src/testing/run_data_quality.ts",
+    "test:benchmark": "npx tsx src/testing/run_benchmarks.ts",
+    "test:readiness": "npx tsx src/testing/run_readiness.ts"
   },
   "dependencies": {
     "react": "^18.2.0",

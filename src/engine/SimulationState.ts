@@ -44,6 +44,7 @@ interface SimulationStore {
   showAchievements: boolean;
   showWorldStats: boolean;
   showWelcome: boolean;
+  showTestingDashboard: boolean;
 
   initWorld: (seed: number) => void;
   tick: () => void;
@@ -55,6 +56,7 @@ interface SimulationStore {
   toggleEventLog: () => void;
   toggleAchievements: () => void;
   toggleWorldStats: () => void;
+  toggleTestingDashboard: () => void;
   setShowWelcome: (show: boolean) => void;
 }
 
@@ -71,6 +73,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
   showAchievements: false,
   showWorldStats: false,
   showWelcome: true,
+  showTestingDashboard: false,
 
   initWorld: (seed: number) => {
     const config = { ...GAMEPLAY_CONFIG };
@@ -286,6 +289,10 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
 
   toggleWorldStats: () => {
     set(s => ({ showWorldStats: !s.showWorldStats }));
+  },
+
+  toggleTestingDashboard: () => {
+    set(s => ({ showTestingDashboard: !s.showTestingDashboard }));
   },
 
   setShowWelcome: (show: boolean) => {
