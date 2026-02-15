@@ -74,12 +74,6 @@ export class NPCManager {
   private checkSpawning(config: WorldConfig, tileMap: TileMap): void {
     const alive = this.getAliveNPCs();
 
-    // Maintain minimum population
-    if (alive.length < config.minPopulation) {
-      this.spawnNPC(tileMap, config);
-      return;
-    }
-
     // Do not exceed maximum population
     if (alive.length >= config.maxPopulation) {
       return;

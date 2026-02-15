@@ -90,4 +90,24 @@ describe('NPCManager', () => {
     expect(GAMEPLAY_CONFIG.maxPopulation).toBeDefined();
     expect(GAMEPLAY_CONFIG.maxPopulation).toBeGreaterThanOrEqual(GAMEPLAY_CONFIG.minPopulation);
   });
+
+  it('does not auto-spawn NPCs when population drops below minPopulation', () => {
+    const manager = new NPCManager(42);
+    const tileMap = makeWalkableTileMap(32);
+    const config = makeTestConfig({ initialNPCCount: 5, minPopulation: 3 });
+    manager.spawnInitial(config.initialNPCCount, tileMap, config);
+
+    // Kill 4 of 5 NPCs — population drops below minPopulation (3)
+    const npcs = manager.getNPCs();
+    npcs[0].alive = false;
+    npcs[1].alive = false;
+    npcs[2].alive = false;
+    npcs[3].alive = false;
+
+    // Only 1 alive NPC remains, which is below minPopulation of 3
+    expect(manager.getAliveNPCs()).toHaveLength(1);
+
+    // No new NPCs should have been spawned — only reproduction should create NPCs
+    expect(manager.getNPCs()).toHaveLength(5);
+  });
 });
