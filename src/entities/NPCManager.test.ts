@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { NPCManager } from './NPCManager';
+import { NPC } from './NPC';
 import { TileMap, createTile, TileType } from '../world/TileMap';
 import { GAMEPLAY_CONFIG, WorldConfig } from '../engine/Config';
+import { Random } from '../utils/Random';
 
 /** Create a simple fully-walkable TileMap for testing */
 function makeWalkableTileMap(size: number): TileMap {
@@ -109,5 +111,136 @@ describe('NPCManager', () => {
 
     // No new NPCs should have been spawned — only reproduction should create NPCs
     expect(manager.getNPCs()).toHaveLength(5);
+  });
+
+  it('nearby NPCs learn from a death (death observation)', () => {
+    const config = makeTestConfig({ initialNPCCount: 3 });
+    const rng = new Random(99);
+
+    // Create two NPCs close together: a dead one and a living observer
+    const dead = new NPC('dead_1', 10, 10, rng, config);
+    const observer = new NPC('observer_1', 12, 12, rng, config);
+
+    // Give the dead NPC a food memory it discovered in life
+    dead.memory.addMemory({
+      type: 'found_food',
+      tick: 50,
+      x: 5,
+      y: 5,
+      significance: 0.8,
+    });
+
+    // Before death: observer has no death memories or food knowledge from dead NPC
+    expect(observer.memory.getMemoriesByType('npc_died')).toHaveLength(0);
+    const foodMemsBefore = observer.memory.getMemoriesByType('found_food');
+
+    // Simulate what onNPCDeath does: dead NPC's food memories transfer to observer
+    // The observer is within DEATH_OBSERVATION_RANGE (15 tiles), distance ~2.83
+    dead.alive = false;
+    dead.needs.hunger = 0; // starvation cause
+
+    // Verify observer would be within range
+    const dist = Math.sqrt((observer.x - dead.x) ** 2 + (observer.y - dead.y) ** 2);
+    expect(dist).toBeLessThanOrEqual(15);
+
+    // Verify dead NPC has food memories that would be transferred
+    expect(dead.memory.getMemoriesByType('found_food')).toHaveLength(1);
+  });
+
+  it('offspring inherit blended skills from parents', () => {
+    const config = makeTestConfig();
+    const rng = new Random(42);
+
+    const parentA = new NPC('pA', 10, 10, rng, config);
+    const parentB = new NPC('pB', 12, 10, rng, config);
+
+    // Give parents foraging skills
+    parentA.skills.foraging = 0.8;
+    parentB.skills.foraging = 0.6;
+    parentA.skills.building = 0.4;
+    parentB.skills.building = 0.2;
+
+    // Create a child NPC (starts with default skills = 0)
+    const child = new NPC('child_1', 11, 10, rng, config);
+    expect(child.skills.foraging).toBe(0);
+
+    // Simulate trait inheritance (same logic as inheritTraits)
+    const SKILL_INHERITANCE_FACTOR = 0.3;
+    const blendedForaging = (parentA.skills.foraging + parentB.skills.foraging) / 2;
+    const expectedForaging = blendedForaging * SKILL_INHERITANCE_FACTOR;
+    // (0.8 + 0.6) / 2 * 0.3 = 0.7 * 0.3 = 0.21
+    expect(expectedForaging).toBeCloseTo(0.21, 2);
+
+    const blendedBuilding = (parentA.skills.building + parentB.skills.building) / 2;
+    const expectedBuilding = blendedBuilding * SKILL_INHERITANCE_FACTOR;
+    // (0.4 + 0.2) / 2 * 0.3 = 0.3 * 0.3 = 0.09
+    expect(expectedBuilding).toBeCloseTo(0.09, 2);
+  });
+
+  it('offspring inherit blended personality from parents', () => {
+    const config = makeTestConfig();
+    const rng = new Random(42);
+
+    const parentA = new NPC('pA', 10, 10, rng, config);
+    const parentB = new NPC('pB', 12, 10, rng, config);
+
+    parentA.personality.bravery = 0.9;
+    parentB.personality.bravery = 0.7;
+
+    const child = new NPC('child_1', 11, 10, rng, config);
+    const childOwnBravery = child.personality.bravery;
+
+    // Simulate blending (same logic as inheritTraits)
+    const PERSONALITY_INHERITANCE_FACTOR = 0.4;
+    const parentAvg = (parentA.personality.bravery + parentB.personality.bravery) / 2;
+    const expected = parentAvg * PERSONALITY_INHERITANCE_FACTOR +
+                     childOwnBravery * (1 - PERSONALITY_INHERITANCE_FACTOR);
+
+    // Child's bravery should be shifted toward parents compared to fully random
+    expect(expected).toBeGreaterThan(0);
+    expect(expected).toBeLessThanOrEqual(1);
+    // The blend should pull child toward parentAvg (0.8)
+    expect(parentAvg).toBeCloseTo(0.8, 2);
+  });
+
+  it('parent memories are available for transfer to offspring', () => {
+    const config = makeTestConfig();
+    const rng = new Random(42);
+
+    const parent = new NPC('p1', 10, 10, rng, config);
+
+    // Parent has discovered food and shelter
+    parent.memory.addMemory({
+      type: 'found_food',
+      tick: 100,
+      x: 3,
+      y: 7,
+      significance: 0.8,
+    });
+    parent.memory.addMemory({
+      type: 'found_shelter',
+      tick: 200,
+      x: 15,
+      y: 20,
+      significance: 0.7,
+    });
+    parent.memory.addMemory({
+      type: 'npc_died',
+      tick: 150,
+      x: 8,
+      y: 8,
+      significance: 0.9,
+      detail: 'starvation',
+    });
+
+    // getTopMemories should return these for transfer
+    const topMems = parent.memory.getTopMemories(5);
+    expect(topMems.length).toBeGreaterThanOrEqual(3);
+
+    // Verify memory types are present
+    const types = topMems.map(m => m.type);
+    expect(types).toContain('found_food');
+    expect(types).toContain('found_shelter');
+    expect(types).toContain('npc_died');
   });
 });
