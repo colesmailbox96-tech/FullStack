@@ -52,6 +52,8 @@ export interface WorldConfig {
   craftTicks: number;
   /** Minimum total inventory resources before NPC considers crafting */
   craftInventoryThreshold: number;
+  /** Maximum population cap to prevent unbounded growth */
+  maxPopulation: number;
 }
 
 /**
@@ -107,6 +109,7 @@ export const GAMEPLAY_CONFIG: WorldConfig = {
   gatherTicks: 20,
   craftTicks: 40,
   craftInventoryThreshold: 5,
+  maxPopulation: 50,
 };
 
 /**

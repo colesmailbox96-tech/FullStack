@@ -43,7 +43,7 @@ const WorldStatsPanel: React.FC<WorldStatsPanelProps> = ({ visible, onClose }) =
   const allNPCs = state.npcs;
   const aliveNPCs = allNPCs.filter(n => n.alive);
   const aliveCount = aliveNPCs.length;
-  const peakPopulation = allNPCs.length;
+  const peakPopulation = state.populationTracker.getPeakPopulation();
 
   // World age
   const { tick, day, season } = state.timeSystem;
@@ -121,7 +121,7 @@ const WorldStatsPanel: React.FC<WorldStatsPanelProps> = ({ visible, onClose }) =
         {/* Population */}
         <Section title="👥 Population">
           <StatRow label="Alive" value={aliveCount} />
-          <StatRow label="Peak (total born)" value={peakPopulation} />
+          <StatRow label="Peak" value={peakPopulation} />
         </Section>
 
         {/* World Age */}
