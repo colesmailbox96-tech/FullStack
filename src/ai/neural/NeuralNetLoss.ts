@@ -16,6 +16,7 @@ export class NeuralNetLoss {
   // Emotion regularization
   emotionRegularization(emotionalState: number[], needs: number[]): number {
     const avgNeed = needs.reduce((a, b) => a + b, 0) / needs.length;
+    // Map needs [0,1] to valence [-1,1]
     const valenceLoss = (emotionalState[0] - (avgNeed * 2 - 1)) ** 2;
     return valenceLoss * 0.1;
   }

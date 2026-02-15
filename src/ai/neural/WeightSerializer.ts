@@ -92,7 +92,7 @@ export class WeightSerializer {
         ffnHiddenDim: brain.ffnHiddenDim,
         numActions: brain.numActions,
         numMemorySlots: brain.numMemorySlots,
-        perceptionInputDim: 30,
+        perceptionInputDim: percLayers[0].weight.shape[1],
       },
       totalParameters,
       trainedOn: trainingInfo,
