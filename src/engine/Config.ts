@@ -46,6 +46,12 @@ export interface WorldConfig {
   socialDebuffThreshold: number;
   /** Energy drain multiplier when socially isolated (below socialDebuffThreshold) */
   socialIsolationEnergyMultiplier: number;
+  /** Number of ticks required to gather a resource from a world object */
+  gatherTicks: number;
+  /** Number of ticks required to craft an item */
+  craftTicks: number;
+  /** Minimum total inventory resources before NPC considers crafting */
+  craftInventoryThreshold: number;
 }
 
 /**
@@ -98,6 +104,9 @@ export const GAMEPLAY_CONFIG: WorldConfig = {
   memoryDecayRate: 0.001,
   socialDebuffThreshold: 0.4,
   socialIsolationEnergyMultiplier: 1.3,
+  gatherTicks: 20,
+  craftTicks: 40,
+  craftInventoryThreshold: 5,
 };
 
 /**

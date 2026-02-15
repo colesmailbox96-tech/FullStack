@@ -14,6 +14,7 @@ describe('createRandomPersonality', () => {
     expect(personality.sociability).toBeCloseTo(0.5);
     expect(personality.curiosity).toBeCloseTo(0.5);
     expect(personality.industriousness).toBeCloseTo(0.5);
+    expect(personality.craftiness).toBeCloseTo(0.5);
   });
 
   it('lower bound when rand returns 0', () => {
@@ -36,6 +37,7 @@ describe('getDominantTrait', () => {
       sociability: 0.7,
       curiosity: 0.4,
       industriousness: 0.5,
+      craftiness: 0.3,
     };
     const result = getDominantTrait(personality);
     expect(result.trait).toBe('sociability');
@@ -48,6 +50,7 @@ describe('getDominantTrait', () => {
       sociability: 0.3,
       curiosity: 0.4,
       industriousness: 0.5,
+      craftiness: 0.3,
     };
     expect(getDominantTrait(personality).trait).toBe('bravery');
     expect(getDominantTrait(personality).label).toBe('Brave');
@@ -59,6 +62,7 @@ describe('getDominantTrait', () => {
       sociability: 0.3,
       curiosity: 0.8,
       industriousness: 0.3,
+      craftiness: 0.3,
     };
     expect(getDominantTrait(personality).trait).toBe('curiosity');
     expect(getDominantTrait(personality).label).toBe('Curious');
@@ -70,6 +74,7 @@ describe('getDominantTrait', () => {
       sociability: 0.3,
       curiosity: 0.3,
       industriousness: 0.8,
+      craftiness: 0.3,
     };
     expect(getDominantTrait(personality).trait).toBe('industriousness');
     expect(getDominantTrait(personality).label).toBe('Industrious');
@@ -81,6 +86,7 @@ describe('getDominantTrait', () => {
       sociability: 0.5,
       curiosity: 0.5,
       industriousness: 0.5,
+      craftiness: 0.5,
     };
     expect(getDominantTrait(personality).trait).toBe('bravery');
   });

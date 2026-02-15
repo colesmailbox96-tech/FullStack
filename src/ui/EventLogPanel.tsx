@@ -9,6 +9,8 @@ const EVENT_ICON: Record<WorldEvent['type'], string> = {
   season_change: '🍂',
   npc_found_food: '🍎',
   npc_socialized: '💬',
+  npc_crafted: '🔨',
+  npc_gathered: '🪓',
 };
 
 const TICKS_PER_DAY = 2400;

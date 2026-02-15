@@ -10,6 +10,8 @@ import { Needs, createDefaultNeeds } from './Needs';
 import { MemorySystem } from './Memory';
 import { Personality, createRandomPersonality } from './Personality';
 import { RelationshipSystem } from './Relationship';
+import { Inventory, createEmptyInventory, addResource, totalResources } from './Inventory';
+import { getAvailableRecipes, craftItem } from '../engine/Crafting';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
 import { buildPerception } from '../ai/Perception';
@@ -40,6 +42,7 @@ export class NPC {
   memory: MemorySystem;
   personality: Personality;
   relationships: RelationshipSystem;
+  inventory: Inventory;
   appearance: NPCAppearance;
   direction: Direction;
   isMoving: boolean;
@@ -74,6 +77,7 @@ export class NPC {
     this.memory = new MemorySystem(config.memoryCapacity);
     this.personality = createRandomPersonality(() => rng.next());
     this.relationships = new RelationshipSystem();
+    this.inventory = createEmptyInventory();
     this.appearance = {
       skinTone: rng.nextInt(4),
       hairColor: rng.nextInt(6),
@@ -138,7 +142,7 @@ export class NPC {
     // AI decision
     const perception = buildPerception(
       this, tileMap, objects, allNPCs, timeSystem, weatherSystem,
-      this.x, this.y, 1,
+      this.x, this.y, 1, config.craftInventoryThreshold,
     );
     const action = brain.decide(perception);
     this.currentAction = action.type;
@@ -333,6 +337,60 @@ export class NPC {
       }
       case 'IDLE': {
         this.needs.safety = clamp(this.needs.safety + 0.005, 0, 1);
+        break;
+      }
+      case 'GATHER': {
+        if (this.actionTimer >= config.gatherTicks) {
+          const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
+          if (obj) {
+            if ((obj.type === ObjectType.OakTree || obj.type === ObjectType.PineTree || obj.type === ObjectType.BirchTree)
+                && obj.state !== 'depleted') {
+              addResource(this.inventory, 'wood', 1);
+              this.memory.addMemory({
+                type: 'gathered_resource',
+                tick: this.age,
+                x: obj.x,
+                y: obj.y,
+                significance: 0.4,
+                detail: 'wood',
+              });
+            } else if (obj.type === ObjectType.Rock && obj.state !== 'depleted') {
+              addResource(this.inventory, 'stone', 1);
+              this.memory.addMemory({
+                type: 'gathered_resource',
+                tick: this.age,
+                x: obj.x,
+                y: obj.y,
+                significance: 0.4,
+                detail: 'stone',
+              });
+            }
+          }
+          this.actionTimer = 0;
+          this.currentAction = 'IDLE';
+        }
+        break;
+      }
+      case 'CRAFT': {
+        if (this.actionTimer >= config.craftTicks) {
+          const recipes = getAvailableRecipes(this.inventory);
+          if (recipes.length > 0) {
+            const recipe = recipes[0];
+            if (craftItem(this.inventory, recipe)) {
+              objects.addObjectAt(recipe.result, Math.floor(this.x), Math.floor(this.y));
+              this.memory.addMemory({
+                type: 'crafted_item',
+                tick: this.age,
+                x: Math.floor(this.x),
+                y: Math.floor(this.y),
+                significance: 0.9,
+                detail: recipe.name,
+              });
+            }
+          }
+          this.actionTimer = 0;
+          this.currentAction = 'IDLE';
+        }
         break;
       }
     }

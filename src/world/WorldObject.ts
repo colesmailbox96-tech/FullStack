@@ -207,4 +207,18 @@ export class WorldObjectManager {
     }
     return true;
   }
+
+  addObjectAt(type: ObjectType, x: number, y: number): void {
+    const id = `obj_${this.nextId++}`;
+    this.objects.set(id, {
+      id,
+      type,
+      x,
+      y,
+      state: 'normal',
+      resources: 0,
+      respawnTimer: 0,
+      swayOffset: 0,
+    });
+  }
 }

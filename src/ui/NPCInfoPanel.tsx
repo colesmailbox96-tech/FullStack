@@ -5,6 +5,7 @@ import { getDominantTrait, type Personality } from '../entities/Personality';
 import { getRelationshipLabel, type Relationship } from '../entities/Relationship';
 import type { Memory } from '../entities/Memory';
 import type { ActionType } from '../ai/Action';
+import type { Inventory } from '../entities/Inventory';
 
 const MOOD_EMOJI: Record<string, string> = {
   happy: '😊',
@@ -20,6 +21,8 @@ const ACTION_LABEL: Record<ActionType, string> = {
   EXPLORE: '🧭 Exploring',
   SOCIALIZE: '💬 Socializing',
   IDLE: '⏳ Idle',
+  GATHER: '🪓 Gathering',
+  CRAFT: '🔨 Crafting',
 };
 
 const MEMORY_LABEL: Record<string, string> = {
@@ -29,6 +32,8 @@ const MEMORY_LABEL: Record<string, string> = {
   found_shelter: '🏠 Found shelter',
   discovered_area: '🗺️ Discovered area',
   npc_died: '💀 Witnessed death',
+  crafted_item: '🔨 Crafted item',
+  gathered_resource: '🪓 Gathered resource',
 };
 
 interface NeedBarProps {
@@ -102,6 +107,7 @@ interface PanelNPC {
   targetY: number;
   needs: Needs;
   personality: Personality;
+  inventory: Inventory;
   age: number;
   tilesVisited: Set<string>;
   memory: { getTopMemories: (count: number) => Memory[] };
@@ -158,6 +164,16 @@ const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
           </p>
         </div>
 
+        {/* Inventory */}
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">Inventory</h3>
+          <div className="grid grid-cols-3 gap-2 text-xs text-gray-400">
+            <span>🪵 {npc.inventory.wood}</span>
+            <span>🪨 {npc.inventory.stone}</span>
+            <span>🫐 {npc.inventory.berries}</span>
+          </div>
+        </div>
+
         {/* Need bars */}
         <div>
           <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Needs</h3>
@@ -184,6 +200,8 @@ const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
             <span className="text-right font-mono">{Math.round(npc.personality.curiosity * 100)}%</span>
             <span>⚒️ Industry</span>
             <span className="text-right font-mono">{Math.round(npc.personality.industriousness * 100)}%</span>
+            <span>🔨 Craftiness</span>
+            <span className="text-right font-mono">{Math.round(npc.personality.craftiness * 100)}%</span>
           </div>
         </div>
 
