@@ -188,7 +188,7 @@ export class InputManager {
     this.mouseDown = false;
     this.mouseMoved = false;
     this.state.isDragging = false;
-    this.state.isTouchDrag = false;
+    // Don't reset isTouchDrag here - it should only be managed by touch handlers
   }
 
   // --- Wheel handler ---
@@ -254,6 +254,10 @@ export class InputManager {
   private handleTouchEnd(e: TouchEvent): void {
     if (this.gestureDetector.isPinching()) {
       this.gestureDetector.handleTouchEnd();
+      // Reset touch drag state when ending pinch gesture
+      if (e.touches.length === 0) {
+        this.state.isTouchDrag = false;
+      }
       return;
     }
 
