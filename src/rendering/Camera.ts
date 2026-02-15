@@ -26,9 +26,14 @@ export class Camera {
     this.targetZoom = 1;
   }
 
-  update(): void {
-    this.x = lerp(this.x, this.targetX, LERP_FACTOR);
-    this.y = lerp(this.y, this.targetY, LERP_FACTOR);
+  update(isDragging = false): void {
+    if (isDragging) {
+      this.x = this.targetX;
+      this.y = this.targetY;
+    } else {
+      this.x = lerp(this.x, this.targetX, LERP_FACTOR);
+      this.y = lerp(this.y, this.targetY, LERP_FACTOR);
+    }
     this.zoom = lerp(this.zoom, this.targetZoom, LERP_FACTOR);
   }
 
