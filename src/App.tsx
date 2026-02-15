@@ -7,6 +7,7 @@ import MiniMap from './ui/MiniMap';
 import NPCInfoPanel from './ui/NPCInfoPanel';
 import SpeedControls from './ui/SpeedControls';
 import DebugOverlay from './ui/DebugOverlay';
+import EventLogPanel from './ui/EventLogPanel';
 
 const App: React.FC = () => {
   const showWelcome = useSimulation(s => s.showWelcome);
@@ -23,6 +24,7 @@ const App: React.FC = () => {
           <MiniMap />
           <NPCInfoPanel />
           <SpeedControls />
+          <EventLogPanel />
           {showDebug && <DebugOverlay />}
         </>
       )}
