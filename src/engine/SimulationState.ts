@@ -93,7 +93,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
     const { timeSystem, weather, objects, npcManager, tileMap, config } = state;
 
     timeSystem.update();
-    weather.update(timeSystem.season);
+    weather.update(timeSystem.season, config);
     objects.update(timeSystem.tick, config, timeSystem.season);
     npcManager.update(config, weather.current, timeSystem, tileMap, objects, weather);
 
