@@ -9,10 +9,13 @@ import SpeedControls from './ui/SpeedControls';
 import DebugOverlay from './ui/DebugOverlay';
 import EventLogPanel from './ui/EventLogPanel';
 import AchievementPanel from './ui/AchievementPanel';
+import WorldStatsPanel from './ui/WorldStatsPanel';
 
 const App: React.FC = () => {
   const showWelcome = useSimulation(s => s.showWelcome);
   const showDebug = useSimulation(s => s.showDebug);
+  const showWorldStats = useSimulation(s => s.showWorldStats);
+  const toggleWorldStats = useSimulation(s => s.toggleWorldStats);
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-black">
@@ -27,6 +30,7 @@ const App: React.FC = () => {
           <SpeedControls />
           <EventLogPanel />
           <AchievementPanel />
+          <WorldStatsPanel visible={showWorldStats} onClose={toggleWorldStats} />
           {showDebug && <DebugOverlay />}
         </>
       )}
