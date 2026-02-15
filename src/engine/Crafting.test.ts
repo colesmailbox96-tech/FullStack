@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getAvailableRecipes, craftItem, RECIPES } from './Crafting';
+import { getAvailableRecipes, craftItem, RECIPES, isToolRecipe, createTool } from './Crafting';
 import { createEmptyInventory, addResource } from '../entities/Inventory';
 
 describe('RECIPES', () => {
@@ -12,6 +12,17 @@ describe('RECIPES', () => {
     expect(campfire).toBeDefined();
     expect(campfire!.ingredients.wood).toBe(3);
     expect(campfire!.ingredients.stone).toBe(2);
+  });
+
+  it('tool recipes have toolResult set', () => {
+    const toolRecipes = RECIPES.filter(r => r.toolResult !== undefined);
+    expect(toolRecipes.length).toBe(3);
+    expect(toolRecipes.map(r => r.name).sort()).toEqual(['Fishing Rod', 'Stone Pickaxe', 'Wooden Axe']);
+  });
+
+  it('campfire recipe is not a tool recipe', () => {
+    const campfire = RECIPES.find(r => r.name === 'Campfire')!;
+    expect(isToolRecipe(campfire)).toBe(false);
   });
 });
 
@@ -57,5 +68,33 @@ describe('craftItem', () => {
     const result = craftItem(inv, recipe);
     expect(result).toBe(false);
     expect(inv.wood).toBe(1);
+  });
+});
+
+describe('isToolRecipe', () => {
+  it('returns true for tool recipes', () => {
+    const axe = RECIPES.find(r => r.name === 'Wooden Axe')!;
+    expect(isToolRecipe(axe)).toBe(true);
+  });
+
+  it('returns false for campfire recipe', () => {
+    const campfire = RECIPES.find(r => r.name === 'Campfire')!;
+    expect(isToolRecipe(campfire)).toBe(false);
+  });
+});
+
+describe('createTool', () => {
+  it('creates a wooden axe with full durability', () => {
+    const tool = createTool('wooden_axe');
+    expect(tool.type).toBe('wooden_axe');
+    expect(tool.name).toBe('Wooden Axe');
+    expect(tool.durability).toBe(tool.maxDurability);
+    expect(tool.gatherSpeedModifier).toBe(1.5);
+  });
+
+  it('creates a fishing rod with correct target', () => {
+    const tool = createTool('fishing_rod');
+    expect(tool.type).toBe('fishing_rod');
+    expect(tool.targetResource).toBe('food');
   });
 });

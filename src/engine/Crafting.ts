@@ -5,6 +5,8 @@ import { hasResources, consumeResources, type ResourceType } from '../entities/I
 export interface CraftingRecipe {
   name: string;
   result: ObjectType;
+  /** When set, crafting produces a tool added to the NPC instead of a world object */
+  toolResult?: ToolType;
   ingredients: Partial<Record<ResourceType, number>>;
   craftTicks: number;
 }
@@ -79,19 +81,22 @@ export const RECIPES: CraftingRecipe[] = [
   },
   {
     name: 'Wooden Axe',
-    result: ObjectType.Campfire, // Uses campfire as placeholder result type
+    result: ObjectType.Campfire,
+    toolResult: 'wooden_axe',
     ingredients: { wood: 4 },
     craftTicks: 30,
   },
   {
     name: 'Stone Pickaxe',
     result: ObjectType.Campfire,
+    toolResult: 'stone_pickaxe',
     ingredients: { wood: 2, stone: 3 },
     craftTicks: 35,
   },
   {
     name: 'Fishing Rod',
     result: ObjectType.Campfire,
+    toolResult: 'fishing_rod',
     ingredients: { wood: 3, berries: 1 },
     craftTicks: 25,
   },
@@ -99,6 +104,11 @@ export const RECIPES: CraftingRecipe[] = [
 
 export function getAvailableRecipes(inventory: Inventory): CraftingRecipe[] {
   return RECIPES.filter(recipe => hasResources(inventory, recipe.ingredients));
+}
+
+/** Returns true when the recipe produces a tool rather than a world object */
+export function isToolRecipe(recipe: CraftingRecipe): boolean {
+  return recipe.toolResult !== undefined;
 }
 
 export function craftItem(inventory: Inventory, recipe: CraftingRecipe): boolean {

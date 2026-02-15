@@ -13,7 +13,7 @@ import { RelationshipSystem } from './Relationship';
 import { Inventory, createEmptyInventory, addResource, totalResources } from './Inventory';
 import { Skills, createDefaultSkills, grantSkillXP, getSkillBonus } from './Skills';
 import { evaluateTrade, executeTrade } from './Trading';
-import { getAvailableRecipes, craftItem } from '../engine/Crafting';
+import { getAvailableRecipes, craftItem, isToolRecipe, createTool } from '../engine/Crafting';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
 import { buildPerception } from '../ai/Perception';
@@ -499,7 +499,12 @@ export class NPC {
           if (recipes.length > 0) {
             const recipe = recipes[0];
             if (craftItem(this.inventory, recipe)) {
-              objects.addObjectAt(recipe.result, Math.floor(this.x), Math.floor(this.y));
+              if (isToolRecipe(recipe)) {
+                // Tool recipes produce a tool rather than a world object
+                createTool(recipe.toolResult!);
+              } else {
+                objects.addObjectAt(recipe.result, Math.floor(this.x), Math.floor(this.y));
+              }
               grantSkillXP(this.skills, 'crafting');
               this.reputation.addReputation(REPUTATION_PER_CRAFT, 'crafting');
               this.craftCount++;
