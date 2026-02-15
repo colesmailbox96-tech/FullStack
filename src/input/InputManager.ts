@@ -188,7 +188,8 @@ export class InputManager {
     this.mouseDown = false;
     this.mouseMoved = false;
     this.state.isDragging = false;
-    // Don't reset isTouchDrag here - it should only be managed by touch handlers
+    // Reset isTouchDrag since mouse and touch drags are mutually exclusive
+    this.state.isTouchDrag = false;
   }
 
   // --- Wheel handler ---
