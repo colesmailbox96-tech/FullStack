@@ -13,7 +13,7 @@ import { RelationshipSystem } from './Relationship';
 import { Inventory, createEmptyInventory, addResource, totalResources } from './Inventory';
 import { Skills, createDefaultSkills, grantSkillXP, getSkillBonus } from './Skills';
 import { evaluateTrade, executeTrade } from './Trading';
-import { getAvailableRecipes, craftItem, isToolRecipe, createTool } from '../engine/Crafting';
+import { getAvailableRecipes, craftItem, isToolRecipe, createTool, type ToolInfo } from '../engine/Crafting';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
 import { buildPerception } from '../ai/Perception';
@@ -96,6 +96,8 @@ export class NPC {
   craftCount: number;
   /** Whether this NPC has survived a storm */
   survivedStorm: boolean;
+  /** Currently equipped tool, if any */
+  equippedTool: ToolInfo | null;
 
   private rng: Random;
 
@@ -150,6 +152,7 @@ export class NPC {
     this.isOriginal = false;
     this.craftCount = 0;
     this.survivedStorm = false;
+    this.equippedTool = null;
   }
 
   update(
@@ -500,9 +503,9 @@ export class NPC {
             const recipe = recipes[0];
             if (craftItem(this.inventory, recipe)) {
               if (isToolRecipe(recipe)) {
-                // Tool recipes produce a tool rather than a world object
-                createTool(recipe.toolResult!);
-              } else {
+                // Tool recipes produce a tool equipped by the NPC
+                this.equippedTool = createTool(recipe.toolResult!);
+              } else if (recipe.result) {
                 objects.addObjectAt(recipe.result, Math.floor(this.x), Math.floor(this.y));
               }
               grantSkillXP(this.skills, 'crafting');
