@@ -167,7 +167,6 @@ export class AchievementSystem {
     }
     if (this.passedFirstWinter && params.season === 'spring') {
       unlock('winter_survived');
-      this.passedFirstWinter = false; // reset so it can track again
     }
 
     return newlyUnlocked;

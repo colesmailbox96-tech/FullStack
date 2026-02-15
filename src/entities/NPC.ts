@@ -169,7 +169,12 @@ export class NPC {
       }
     }
 
-    this.executeAction(tileMap, objects, config, allNPCs);
+    // Find trade partner for socializing (only when needed)
+    const tradePartner = (this.currentAction === 'SOCIALIZE' && this.targetNpcId)
+      ? allNPCs.find(n => n.id === this.targetNpcId && n.alive) ?? null
+      : null;
+
+    this.executeAction(tileMap, objects, config, tradePartner);
     this.moveAlongPath();
   }
 
@@ -265,7 +270,7 @@ export class NPC {
     }
   }
 
-  private executeAction(tileMap: TileMap, objects: WorldObjectManager, config: WorldConfig, allNPCs: NPC[]): void {
+  private executeAction(tileMap: TileMap, objects: WorldObjectManager, config: WorldConfig, tradePartner: NPC | null): void {
     this.actionTimer++;
 
     switch (this.currentAction) {
@@ -308,16 +313,15 @@ export class NPC {
         if (this.targetNpcId) {
           this.relationships.interact(this.targetNpcId, this.age);
           // Attempt trade with socializing partner
-          const partner = allNPCs.find(n => n.id === this.targetNpcId && n.alive);
-          if (partner) {
+          if (tradePartner) {
             const affinity = this.relationships.getRelationship(this.targetNpcId)?.affinity ?? 0;
             const trade = evaluateTrade(
               this.inventory, this.needs,
-              partner.inventory, partner.needs,
+              tradePartner.inventory, tradePartner.needs,
               affinity,
             );
             if (trade.occurred) {
-              executeTrade(this.inventory, partner.inventory, trade);
+              executeTrade(this.inventory, tradePartner.inventory, trade);
             }
           }
         }
