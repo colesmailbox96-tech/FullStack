@@ -213,7 +213,7 @@ export class NPCManager {
     for (const mem of inherited) {
       child.memory.addMemory({
         type: mem.type,
-        tick: 0,
+        tick: child.age,
         x: mem.x,
         y: mem.y,
         significance: mem.significance * INHERITED_MEMORY_SIGNIFICANCE,
