@@ -105,10 +105,19 @@ const GameCanvas: React.FC = () => {
       // Handle drag (pan camera)
       const drag = input.consumeDrag();
       if (drag.dx !== 0 || drag.dy !== 0) {
-        camera.pan(
-          -drag.dx / (camera.zoom * TILE_SIZE),
-          -drag.dy / (camera.zoom * TILE_SIZE),
-        );
+        const inputState = input.getState();
+        // Use immediate panning for touch to avoid stuttering
+        if (inputState.isTouchDrag) {
+          camera.panImmediate(
+            -drag.dx / (camera.zoom * TILE_SIZE),
+            -drag.dy / (camera.zoom * TILE_SIZE),
+          );
+        } else {
+          camera.pan(
+            -drag.dx / (camera.zoom * TILE_SIZE),
+            -drag.dy / (camera.zoom * TILE_SIZE),
+          );
+        }
       }
 
       // Handle zoom

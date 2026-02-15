@@ -11,6 +11,7 @@ export interface InputState {
   hasClick: boolean;
   zoomDelta: number;
   keys: Set<string>;
+  isTouchDrag: boolean;
 }
 
 const DRAG_THRESHOLD = 5;
@@ -61,6 +62,7 @@ export class InputManager {
       hasClick: false,
       zoomDelta: 0,
       keys: new Set<string>(),
+      isTouchDrag: false,
     };
 
     this.onMouseDown = this.handleMouseDown.bind(this);
@@ -159,6 +161,7 @@ export class InputManager {
     if (!this.mouseMoved && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
       this.mouseMoved = true;
       this.state.isDragging = true;
+      this.state.isTouchDrag = false;
       this.state.dragStartX = this.mouseStartX;
       this.state.dragStartY = this.mouseStartY;
     }
@@ -185,6 +188,8 @@ export class InputManager {
     this.mouseDown = false;
     this.mouseMoved = false;
     this.state.isDragging = false;
+    // Reset isTouchDrag since mouse and touch drags are mutually exclusive
+    this.state.isTouchDrag = false;
   }
 
   // --- Wheel handler ---
@@ -232,6 +237,7 @@ export class InputManager {
       if (!this.touchMoved && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
         this.touchMoved = true;
         this.state.isDragging = true;
+        this.state.isTouchDrag = true;
         this.state.dragStartX = this.touchStartX;
         this.state.dragStartY = this.touchStartY;
       }
@@ -249,6 +255,10 @@ export class InputManager {
   private handleTouchEnd(e: TouchEvent): void {
     if (this.gestureDetector.isPinching()) {
       this.gestureDetector.handleTouchEnd();
+      // Reset touch drag state when ending pinch gesture
+      if (e.touches.length === 0) {
+        this.state.isTouchDrag = false;
+      }
       return;
     }
 
@@ -263,6 +273,7 @@ export class InputManager {
       this.singleTouchActive = false;
       this.touchMoved = false;
       this.state.isDragging = false;
+      this.state.isTouchDrag = false;
     }
   }
 
