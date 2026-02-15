@@ -23,8 +23,8 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 
 const MOVE_TICKS = 8;
 const FORAGE_TICKS = 30;
-const MOVING_HUNGER_MULTIPLIER = 1.67;
-const REST_ENERGY_FACTOR = -0.5;
+const MOVING_ENERGY_MULTIPLIER = 1.5;
+const IDLE_ENERGY_DRAIN_BASE = 0.003;
 
 const brain = new BehaviorTreeBrain();
 
@@ -51,6 +51,8 @@ export class NPC {
   moveTimer: number;
   actionTimer: number;
   tilesVisited: Set<string>;
+  /** Ticks the NPC has spent within its familiar area (for boredom acceleration) */
+  staleAreaTicks: number;
   spawnAnimation: number;
   deathAnimation: number;
   idlePhase: number;
@@ -87,6 +89,7 @@ export class NPC {
     this.actionTimer = 0;
     this.tilesVisited = new Set<string>();
     this.tilesVisited.add(`${Math.floor(x)},${Math.floor(y)}`);
+    this.staleAreaTicks = 0;
     this.spawnAnimation = 0;
     this.deathAnimation = 0;
     this.idlePhase = rng.next() * Math.PI * 2;
@@ -162,41 +165,88 @@ export class NPC {
     nearbyNPCs: NPC[],
     tileMap: TileMap,
   ): void {
-    // Hunger drain
+    const isStorm = weather === 'storm';
+    const isRain = weather === 'rain';
+    const isNight = timeSystem.isNight();
+    const inShelter = this.isInShelter(tileMap);
+
+    // --- Hunger drain ---
+    // Fix 1 & 2: Moving costs more hunger; storms burn extra calories.
     let hungerDrain = config.hungerDrain;
-    if (this.isMoving) hungerDrain *= MOVING_HUNGER_MULTIPLIER;
-    if (weather === 'storm' || weather === 'snow') hungerDrain *= 2;
+    if (this.isMoving) hungerDrain *= 1.5;
+    if (isStorm || weather === 'snow') hungerDrain *= config.stormHungerMultiplier;
     this.needs.hunger = clamp(this.needs.hunger - hungerDrain, 0, 1);
 
-    // Energy drain
-    let energyDrain = config.energyDrain;
-    if (this.isMoving) energyDrain *= 1.5;
-    if (this.currentAction === 'REST') energyDrain *= REST_ENERGY_FACTOR;
-    if (timeSystem.isNight()) energyDrain *= config.nightEnergyMultiplier;
-    this.needs.energy = clamp(this.needs.energy - energyDrain, 0, 1);
+    // --- Energy drain ---
+    // Fix 1: Significant drain while moving (at least 0.006/tick); idle still
+    // drains (0.003/tick minimum). Night × 1.5, storm × 1.8. REST recovery is
+    // +0.015/tick standing, +0.03/tick in shelter — slow enough to cost time.
+    let energyDrain: number;
+    if (this.currentAction === 'REST') {
+      // REST provides net recovery instead of drain
+      const restRecovery = inShelter ? 0.03 : 0.015;
+      this.needs.energy = clamp(this.needs.energy + restRecovery, 0, 1);
+      energyDrain = 0; // skip normal drain path
+    } else {
+      energyDrain = this.isMoving
+        ? config.energyDrain * MOVING_ENERGY_MULTIPLIER
+        : Math.max(IDLE_ENERGY_DRAIN_BASE, config.energyDrain * 0.6);
+      if (isNight) energyDrain *= config.nightEnergyMultiplier;
+      if (isStorm) energyDrain *= config.stormEnergyMultiplier;
+      // Fix 5: Social isolation increases energy drain
+      if (this.needs.social < config.socialDebuffThreshold && nearbyNPCs.length === 0) {
+        energyDrain *= config.socialIsolationEnergyMultiplier;
+      }
+      this.needs.energy = clamp(this.needs.energy - energyDrain, 0, 1);
+    }
 
-    // Social drain
+    // --- Social drain ---
+    // Fix 5: Drains when no NPC within socialRange; recovers when nearby NPCs.
     if (nearbyNPCs.length === 0) {
       this.needs.social = clamp(this.needs.social - config.socialDrain, 0, 1);
     }
 
-    // Curiosity drain: when in same area for too long
+    // --- Curiosity drain ---
+    // Drains when NPC is on already-visited tiles. staleAreaTicks tracks
+    // consecutive ticks on familiar ground; resets when a new tile is visited.
+    // Boredom acceleration: 2× after boredomAccelTicks, 3× after boredomSevereTicks.
     const tileKey = `${Math.floor(this.x)},${Math.floor(this.y)}`;
-    if (this.tilesVisited.has(tileKey) && this.age > config.curiosityStaleTicks) {
-      this.needs.curiosity = clamp(this.needs.curiosity - config.curiosityDrain, 0, 1);
+    if (this.tilesVisited.has(tileKey)) {
+      this.staleAreaTicks++;
+      if (this.staleAreaTicks > config.curiosityStaleTicks) {
+        let curiosityMultiplier = 1;
+        if (this.staleAreaTicks > config.boredomSevereTicks) {
+          curiosityMultiplier = 3;
+        } else if (this.staleAreaTicks > config.boredomAccelTicks) {
+          curiosityMultiplier = 2;
+        }
+        this.needs.curiosity = clamp(
+          this.needs.curiosity - config.curiosityDrain * curiosityMultiplier, 0, 1,
+        );
+      }
+    } else {
+      // New tile discovered — reset stale area counter
+      this.staleAreaTicks = 0;
     }
 
-    // Safety
-    if (weather === 'storm') {
+    // --- Safety drain ---
+    // Fix 2: Storm drops safety 0.04/tick, rain 0.01/tick, night outdoors
+    // 0.02/tick. Night + storm stacks to 0.06/tick.
+    if (isStorm) {
       this.needs.safety = clamp(this.needs.safety - config.stormSafetyPenalty, 0, 1);
     }
-    if (timeSystem.isNight() && !this.isInShelter(tileMap)) {
-      this.needs.safety = clamp(this.needs.safety - 0.03, 0, 1);
+    if (isRain && !isStorm) {
+      this.needs.safety = clamp(this.needs.safety - config.rainSafetyPenalty, 0, 1);
+    }
+    if (isNight && !inShelter) {
+      this.needs.safety = clamp(this.needs.safety - config.nightSafetyPenalty, 0, 1);
     }
 
-    // Safety recovery in shelter or daytime
-    if (!timeSystem.isNight() || this.isInShelter(tileMap)) {
-      this.needs.safety = clamp(this.needs.safety + config.safetyRecovery, 0, 1);
+    // Safety recovery in shelter or calm daytime
+    if (!isNight || inShelter) {
+      if (!isStorm) {
+        this.needs.safety = clamp(this.needs.safety + config.safetyRecovery, 0, 1);
+      }
     }
   }
 
@@ -209,7 +259,7 @@ export class NPC {
           // Try to harvest a nearby object
           const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
           if (obj && obj.type === ObjectType.BerryBush) {
-            const harvested = objects.harvestObject(obj.id);
+            const harvested = objects.harvestObject(obj.id, config.foodRespawnTicks);
             if (harvested) {
               this.needs.hunger = clamp(this.needs.hunger + 0.3, 0, 1);
               this.memory.addMemory({
@@ -227,9 +277,8 @@ export class NPC {
         break;
       }
       case 'REST': {
-        let recovery = 0.02;
-        if (this.isInShelter(tileMap)) recovery *= 2;
-        this.needs.energy = clamp(this.needs.energy + recovery, 0, 1);
+        // REST recovery is handled in updateNeeds to ensure consistent
+        // drain/recovery ordering each tick. No additional recovery here.
         break;
       }
       case 'SOCIALIZE': {
@@ -240,9 +289,14 @@ export class NPC {
         break;
       }
       case 'EXPLORE': {
+        // Fix 4: New tile discovery gives configurable curiosity reward.
+        // Discovering a resource location gives a stronger reward.
         const tileKey = `${Math.floor(this.x)},${Math.floor(this.y)}`;
         if (!this.tilesVisited.has(tileKey)) {
-          this.needs.curiosity = clamp(this.needs.curiosity + 0.2, 0, 1);
+          // Check if there's a resource here for the stronger reward
+          const obj = objects.getObjectAt(Math.floor(this.x), Math.floor(this.y));
+          const reward = obj ? config.curiosityNewResourceReward : config.curiosityNewTileReward;
+          this.needs.curiosity = clamp(this.needs.curiosity + reward, 0, 1);
           this.tilesVisited.add(tileKey);
           this.memory.addMemory({
             type: 'discovered_area',

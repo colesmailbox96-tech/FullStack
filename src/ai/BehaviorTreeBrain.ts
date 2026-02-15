@@ -5,56 +5,94 @@ import { ObjectType } from '../world/WorldObject';
 import { TileType } from '../world/TileMap';
 import { distance } from '../utils/Math';
 
+/**
+ * Behavior tree with tiered priority structure (Fix 6):
+ *
+ * ROOT (Selector)
+ * ├── 1. EMERGENCY SURVIVE: hunger < 0.10 → FORAGE
+ * ├── 2. EMERGENCY SHELTER: safety < 0.15 → SEEK_SHELTER
+ * ├── 3. EMERGENCY REST: energy < 0.10 → REST
+ * ├── 4. MODERATE SURVIVE: hunger < 0.25 → FORAGE
+ * ├── 5. MODERATE SHELTER: safety < 0.35 OR (storm AND outdoors) → SEEK_SHELTER
+ * ├── 6. MODERATE REST: energy < 0.30 → REST
+ * ├── 7. SOCIAL NEED: social < 0.30 AND npc within 15 tiles → SOCIALIZE
+ * ├── 8. CURIOSITY: curiosity < 0.30 → EXPLORE
+ * ├── 9. PROACTIVE FORAGE: hunger < 0.50 → FORAGE
+ * ├── 10. PROACTIVE REST: energy < 0.50 → REST
+ * ├── 11. PROACTIVE SOCIAL: social < 0.50 AND npc within 10 tiles → SOCIALIZE
+ * └── 12. DEFAULT: EXPLORE
+ */
 export class BehaviorTreeBrain implements IBrain {
   decide(perception: Perception): Action {
-    const { needs, nearbyTiles, nearbyObjects, nearbyNPCs, weather, relevantMemories } = perception;
+    const { needs, nearbyNPCs, weather } = perception;
 
-    // 1. SURVIVE: hunger < 0.15
-    if (needs.hunger < 0.15) {
+    // 1. EMERGENCY SURVIVE: hunger < 0.10
+    if (needs.hunger < 0.10) {
       const foodAction = this.findFood(perception);
       if (foodAction) return foodAction;
     }
 
-    // 2. SHELTER: safety < 0.3 OR storm and not sheltered
-    if (needs.safety < 0.3 || (weather === 'storm' && !this.isNearShelter(perception))) {
+    // 2. EMERGENCY SHELTER: safety < 0.15
+    if (needs.safety < 0.15) {
       const shelterAction = this.findShelter(perception);
       if (shelterAction) return shelterAction;
     }
 
-    // 3. REST: energy < 0.2
-    if (needs.energy < 0.2) {
+    // 3. EMERGENCY REST: energy < 0.10
+    if (needs.energy < 0.10) {
       return this.makeRest(perception);
     }
 
-    // 4. SOCIALIZE: social < 0.3 and NPC within 15
-    if (needs.social < 0.3 && nearbyNPCs.length > 0) {
+    // 4. MODERATE SURVIVE: hunger < 0.25
+    if (needs.hunger < 0.25) {
+      const foodAction = this.findFood(perception);
+      if (foodAction) return foodAction;
+    }
+
+    // 5. MODERATE SHELTER: safety < 0.35 OR (storm AND outdoors)
+    if (needs.safety < 0.35 || (weather === 'storm' && !this.isNearShelter(perception))) {
+      const shelterAction = this.findShelter(perception);
+      if (shelterAction) return shelterAction;
+    }
+
+    // 6. MODERATE REST: energy < 0.30
+    if (needs.energy < 0.30) {
+      return this.makeRest(perception);
+    }
+
+    // 7. SOCIAL NEED: social < 0.30 AND npc within 15 tiles
+    if (needs.social < 0.30 && nearbyNPCs.length > 0) {
       const closest = this.findClosestNPC(perception);
       if (closest && distance(perception.cameraX, perception.cameraY, closest.x, closest.y) < 15) {
         return { type: 'SOCIALIZE', targetX: closest.x, targetY: closest.y, targetNpcId: closest.id };
       }
     }
 
-    // 5. EXPLORE: curiosity < 0.3
-    if (needs.curiosity < 0.3) {
+    // 8. CURIOSITY: curiosity < 0.30
+    if (needs.curiosity < 0.30) {
       return this.findExploreTarget(perception);
     }
 
-    // 6. MAINTAIN
-    if (needs.hunger < 0.5) {
+    // 9. PROACTIVE FORAGE: hunger < 0.50
+    if (needs.hunger < 0.50) {
       const foodAction = this.findFood(perception);
       if (foodAction) return foodAction;
     }
-    if (needs.energy < 0.5) {
+
+    // 10. PROACTIVE REST: energy < 0.50
+    if (needs.energy < 0.50) {
       return this.makeRest(perception);
     }
-    if (needs.social < 0.5 && nearbyNPCs.length > 0) {
+
+    // 11. PROACTIVE SOCIAL: social < 0.50 AND npc within 10 tiles
+    if (needs.social < 0.50 && nearbyNPCs.length > 0) {
       const closest = this.findClosestNPC(perception);
-      if (closest) {
+      if (closest && distance(perception.cameraX, perception.cameraY, closest.x, closest.y) < 10) {
         return { type: 'SOCIALIZE', targetX: closest.x, targetY: closest.y, targetNpcId: closest.id };
       }
     }
 
-    // 7. DEFAULT: explore random direction
+    // 12. DEFAULT: EXPLORE (not IDLE — when nothing else is needed, go see new things)
     return this.findExploreTarget(perception);
   }
 
