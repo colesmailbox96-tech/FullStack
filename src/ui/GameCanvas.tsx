@@ -148,7 +148,7 @@ const GameCanvas: React.FC = () => {
       // Render
       const currentState = useSimulation.getState().state;
       if (currentState) {
-        renderer.render(currentState, alpha);
+        renderer.render(currentState, alpha, input.getState().isDragging);
       }
 
       // Sync camera back to store

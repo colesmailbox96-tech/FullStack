@@ -37,7 +37,7 @@ export class Renderer {
     this.particleSystem = new ParticleSystem(500);
   }
 
-  render(state: SimulationSnapshot, alpha: number): void {
+  render(state: SimulationSnapshot, alpha: number, isDragging = false): void {
     const { ctx, canvas, camera } = this;
     const { tileMap, objects, npcs, timeSystem, weather, config } = state;
 
@@ -49,7 +49,7 @@ export class Renderer {
 
     // Update camera
     camera.clampToWorld(tileMap.width, tileMap.height, TILE_SIZE);
-    camera.update();
+    camera.update(isDragging);
 
     // 3. Apply camera transform (translate + scale)
     ctx.save();
