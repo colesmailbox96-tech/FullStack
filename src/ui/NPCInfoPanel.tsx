@@ -1,6 +1,8 @@
 import React, { useCallback } from 'react';
 import { useSimulation } from '../engine/SimulationState';
 import { getMood, type Needs } from '../entities/Needs';
+import { getDominantTrait, type Personality } from '../entities/Personality';
+import { getRelationshipLabel, type Relationship } from '../entities/Relationship';
 import type { Memory } from '../entities/Memory';
 import type { ActionType } from '../ai/Action';
 
@@ -99,9 +101,11 @@ interface PanelNPC {
   targetX: number;
   targetY: number;
   needs: Needs;
+  personality: Personality;
   age: number;
   tilesVisited: Set<string>;
   memory: { getTopMemories: (count: number) => Memory[] };
+  relationships: { getRelationships: () => Relationship[] };
 }
 
 interface PanelContentProps {
@@ -114,6 +118,8 @@ const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
   const idNum = npc.id.replace(/\D/g, '') || npc.id;
   const topMemories = npc.memory.getTopMemories(5);
   const dayAge = Math.floor(npc.age / TICKS_PER_DAY);
+  const dominant = getDominantTrait(npc.personality);
+  const topRelationships = npc.relationships.getRelationships().slice(0, 5);
 
   return (
     <div className="h-full bg-gray-900/95 backdrop-blur-sm border-l md:border-l border-t md:border-t-0 border-gray-700/50 flex flex-col overflow-hidden">
@@ -162,6 +168,47 @@ const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
             <NeedBar label="Curiosity" value={npc.needs.curiosity} />
             <NeedBar label="Safety" value={npc.needs.safety} />
           </div>
+        </div>
+
+        {/* Personality */}
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">
+            Personality <span className="text-gray-600 normal-case">— {dominant.label}</span>
+          </h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
+            <span>🗡️ Bravery</span>
+            <span className="text-right font-mono">{Math.round(npc.personality.bravery * 100)}%</span>
+            <span>💬 Sociability</span>
+            <span className="text-right font-mono">{Math.round(npc.personality.sociability * 100)}%</span>
+            <span>🧭 Curiosity</span>
+            <span className="text-right font-mono">{Math.round(npc.personality.curiosity * 100)}%</span>
+            <span>⚒️ Industry</span>
+            <span className="text-right font-mono">{Math.round(npc.personality.industriousness * 100)}%</span>
+          </div>
+        </div>
+
+        {/* Relationships */}
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">
+            Relationships
+          </h3>
+          {topRelationships.length === 0 ? (
+            <p className="text-xs text-gray-600 italic">No bonds yet</p>
+          ) : (
+            <ul className="space-y-1">
+              {topRelationships.map((r) => {
+                const idNum = r.npcId.replace(/\D/g, '') || r.npcId;
+                return (
+                  <li key={r.npcId} className="text-xs text-gray-400 flex justify-between">
+                    <span>#{idNum} — {getRelationshipLabel(r.affinity)}</span>
+                    <span className="text-gray-600 font-mono">
+                      {Math.round(r.affinity * 100)}%
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         {/* Memories */}
