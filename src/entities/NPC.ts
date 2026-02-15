@@ -9,6 +9,7 @@ import { WorldConfig } from '../engine/Config';
 import { Needs, createDefaultNeeds } from './Needs';
 import { MemorySystem } from './Memory';
 import { Personality, createRandomPersonality } from './Personality';
+import { RelationshipSystem } from './Relationship';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
 import { buildPerception } from '../ai/Perception';
@@ -38,6 +39,7 @@ export class NPC {
   needs: Needs;
   memory: MemorySystem;
   personality: Personality;
+  relationships: RelationshipSystem;
   appearance: NPCAppearance;
   direction: Direction;
   isMoving: boolean;
@@ -71,6 +73,7 @@ export class NPC {
     this.needs = createDefaultNeeds(() => rng.next());
     this.memory = new MemorySystem(config.memoryCapacity);
     this.personality = createRandomPersonality(() => rng.next());
+    this.relationships = new RelationshipSystem();
     this.appearance = {
       skinTone: rng.nextInt(4),
       hairColor: rng.nextInt(6),
@@ -119,6 +122,7 @@ export class NPC {
     const nearbyNPCs = this.getNearbyNPCs(allNPCs, config.socialRange);
     this.updateNeeds(config, weather, timeSystem, nearbyNPCs, tileMap);
     this.memory.update(config.memoryDecayRate);
+    this.relationships.update(config.memoryDecayRate * 0.5);
 
     // Check starvation
     if (this.needs.hunger <= 0) {
@@ -289,6 +293,9 @@ export class NPC {
           this.needs.social + config.socialRecovery,
           0, 1,
         );
+        if (this.targetNpcId) {
+          this.relationships.interact(this.targetNpcId, this.age);
+        }
         break;
       }
       case 'EXPLORE': {
