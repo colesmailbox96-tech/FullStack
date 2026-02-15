@@ -35,6 +35,8 @@ export class Camera {
   pan(dx: number, dy: number): void {
     this.targetX += dx;
     this.targetY += dy;
+    this.x += dx;
+    this.y += dy;
   }
 
   setZoom(zoom: number): void {
