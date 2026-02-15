@@ -13,6 +13,7 @@ export interface Personality {
   sociability: number;
   curiosity: number;
   industriousness: number;
+  craftiness: number;
 }
 
 export type PersonalityTrait = keyof Personality;
@@ -27,6 +28,7 @@ export function createRandomPersonality(rand: () => number): Personality {
     sociability: 0.2 + rand() * 0.6,
     curiosity: 0.2 + rand() * 0.6,
     industriousness: 0.2 + rand() * 0.6,
+    craftiness: 0.2 + rand() * 0.6,
   };
 }
 
@@ -39,6 +41,7 @@ export function getDominantTrait(personality: Personality): { trait: Personality
     { trait: 'sociability', label: 'Social' },
     { trait: 'curiosity', label: 'Curious' },
     { trait: 'industriousness', label: 'Industrious' },
+    { trait: 'craftiness', label: 'Crafty' },
   ];
 
   let best = traits[0];

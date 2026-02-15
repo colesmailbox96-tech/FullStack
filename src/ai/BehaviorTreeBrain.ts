@@ -5,6 +5,8 @@ import { ObjectType } from '../world/WorldObject';
 import { TileType } from '../world/TileMap';
 import { distance } from '../utils/Math';
 import { applyTraitModifier } from '../entities/Personality';
+import { getAvailableRecipes } from '../engine/Crafting';
+import { totalResources } from '../entities/Inventory';
 
 /**
  * Behavior tree with tiered priority structure (Fix 6):
@@ -21,7 +23,9 @@ import { applyTraitModifier } from '../entities/Personality';
  * ├── 9. PROACTIVE FORAGE: hunger < 0.50 → FORAGE
  * ├── 10. PROACTIVE REST: energy < 0.50 → REST
  * ├── 11. PROACTIVE SOCIAL: social < 0.50 AND npc within 10 tiles → SOCIALIZE
- * └── 12. DEFAULT: EXPLORE
+ * ├── 12. CRAFT: has enough resources for a recipe → CRAFT
+ * ├── 13. GATHER: gatherable objects nearby AND inventory not full → GATHER
+ * └── 14. DEFAULT: EXPLORE
  */
 export class BehaviorTreeBrain implements IBrain {
   decide(perception: Perception): Action {
@@ -106,7 +110,15 @@ export class BehaviorTreeBrain implements IBrain {
       }
     }
 
-    // 12. DEFAULT: EXPLORE (not IDLE — when nothing else is needed, go see new things)
+    // 12. CRAFT: has enough resources for a recipe
+    const craftAction = this.findCraftOpportunity(perception);
+    if (craftAction) return craftAction;
+
+    // 13. GATHER: gatherable objects nearby and inventory not full
+    const gatherAction = this.findGatherTarget(perception);
+    if (gatherAction) return gatherAction;
+
+    // 14. DEFAULT: EXPLORE (not IDLE — when nothing else is needed, go see new things)
     return this.findExploreTarget(perception);
   }
 
@@ -211,5 +223,52 @@ export class BehaviorTreeBrain implements IBrain {
       return { type: 'EXPLORE', targetX: candidates[idx].x, targetY: candidates[idx].y };
     }
     return { type: 'IDLE', targetX: Math.round(perception.cameraX), targetY: Math.round(perception.cameraY) };
+  }
+
+  private findGatherTarget(perception: Perception): Action | null {
+    if (totalResources(perception.inventory) >= 10) return null;
+
+    const gatherables = perception.nearbyObjects.filter(
+      (obj: ObjectInfo) =>
+        obj.state !== 'depleted' &&
+        (obj.type === ObjectType.OakTree ||
+         obj.type === ObjectType.PineTree ||
+         obj.type === ObjectType.BirchTree ||
+         obj.type === ObjectType.Rock)
+    );
+
+    if (gatherables.length === 0) return null;
+
+    // Prefer the resource type the NPC has less of
+    const needWood = perception.inventory.wood < perception.inventory.stone;
+    const preferred = gatherables.filter((obj: ObjectInfo) => {
+      if (needWood) {
+        return obj.type === ObjectType.OakTree || obj.type === ObjectType.PineTree || obj.type === ObjectType.BirchTree;
+      }
+      return obj.type === ObjectType.Rock;
+    });
+
+    const candidates = preferred.length > 0 ? preferred : gatherables;
+    const closest = candidates.reduce((a: ObjectInfo, b: ObjectInfo) =>
+      distance(perception.cameraX, perception.cameraY, a.x, a.y) <
+      distance(perception.cameraX, perception.cameraY, b.x, b.y) ? a : b
+    );
+
+    return { type: 'GATHER', targetX: closest.x, targetY: closest.y };
+  }
+
+  private findCraftOpportunity(perception: Perception): Action | null {
+    const recipes = getAvailableRecipes(perception.inventory);
+    if (recipes.length === 0) return null;
+
+    // Craftiness personality influences eagerness; higher = crafts more readily
+    const craftThreshold = applyTraitModifier(5, perception.personality.craftiness);
+    if (totalResources(perception.inventory) < craftThreshold) return null;
+
+    return {
+      type: 'CRAFT',
+      targetX: Math.round(perception.cameraX),
+      targetY: Math.round(perception.cameraY),
+    };
   }
 }

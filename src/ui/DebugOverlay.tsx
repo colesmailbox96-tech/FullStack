@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useSimulation } from '../engine/SimulationState';
 import type { ActionType } from '../ai/Action';
 
-const ACTION_TYPES: ActionType[] = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE'];
+const ACTION_TYPES: ActionType[] = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE', 'GATHER', 'CRAFT'];
 
 const ACTION_COLORS: Record<ActionType, string> = {
   FORAGE: 'bg-orange-500',
@@ -11,6 +11,8 @@ const ACTION_COLORS: Record<ActionType, string> = {
   EXPLORE: 'bg-emerald-500',
   SOCIALIZE: 'bg-purple-500',
   IDLE: 'bg-gray-500',
+  GATHER: 'bg-yellow-500',
+  CRAFT: 'bg-rose-500',
 };
 
 const DebugOverlay: React.FC = () => {
@@ -52,7 +54,7 @@ const DebugOverlay: React.FC = () => {
 
   // Compute action distribution
   const actionCounts: Record<ActionType, number> = {
-    FORAGE: 0, REST: 0, SEEK_SHELTER: 0, EXPLORE: 0, SOCIALIZE: 0, IDLE: 0,
+    FORAGE: 0, REST: 0, SEEK_SHELTER: 0, EXPLORE: 0, SOCIALIZE: 0, IDLE: 0, GATHER: 0, CRAFT: 0,
   };
   for (const npc of aliveNpcs) {
     const action = npc.currentAction as ActionType;

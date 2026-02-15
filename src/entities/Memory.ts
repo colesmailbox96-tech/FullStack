@@ -1,4 +1,4 @@
-export type MemoryType = 'found_food' | 'danger' | 'met_npc' | 'found_shelter' | 'discovered_area' | 'npc_died';
+export type MemoryType = 'found_food' | 'danger' | 'met_npc' | 'found_shelter' | 'discovered_area' | 'npc_died' | 'crafted_item' | 'gathered_resource';
 
 export interface Memory {
   type: MemoryType;

@@ -4,6 +4,7 @@ import type { ActionType } from './Action';
 import type { Needs } from '../entities/Needs';
 import type { Memory } from '../entities/Memory';
 import type { Personality } from '../entities/Personality';
+import type { Inventory } from '../entities/Inventory';
 import type { WeatherState } from '../world/Weather';
 import type { NPC } from '../entities/NPC';
 import type { TileMap } from '../world/TileMap';
@@ -41,6 +42,7 @@ export interface Perception {
   nearbyNPCs: NPCInfo[];
   needs: Needs;
   personality: Personality;
+  inventory: Inventory;
   relevantMemories: Memory[];
   timeOfDay: number;
   weather: WeatherState;
@@ -108,6 +110,7 @@ export function buildPerception(
     nearbyNPCs,
     needs: { ...npc.needs },
     personality: { ...npc.personality },
+    inventory: { ...npc.inventory },
     relevantMemories,
     timeOfDay: timeSystem.timeOfDay,
     weather: weather.current,
