@@ -173,8 +173,9 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
 
     // Log NPC deaths — NPCs that were alive before but are no longer
     const newlyDeadIds = [...prevAliveSet].filter(id => !currentAliveSet.has(id));
+    const findNPC = (id: string) => npcManager.getNPCById(id) ?? npcManager.getNPCs().find(n => n.id === id);
     for (const deadId of newlyDeadIds) {
-      const npc = npcManager.getNPCById(deadId) ?? npcManager.getNPCs().find(n => n.id === deadId);
+      const npc = findNPC(deadId);
       const idNum = deadId.replace(/\D/g, '') || deadId;
       eventLog.addEvent({
         tick: currentTick,
@@ -188,7 +189,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
 
     // Log NPC births — NPCs that are alive now but weren't before
     const newlyBornIds = [...currentAliveSet].filter(id => !prevAliveSet.has(id));
-    for (const _bornId of newlyBornIds) {
+    for (let i = 0; i < newlyBornIds.length; i++) {
       eventLog.addEvent({
         tick: currentTick,
         type: 'npc_born',
@@ -201,7 +202,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
     const deaths = newlyDeadIds.length;
     populationTracker.recordTick(currentTick, currentAlive.length, births, deaths);
     for (const deadId of newlyDeadIds) {
-      const npc = npcManager.getNPCById(deadId) ?? npcManager.getNPCs().find(n => n.id === deadId);
+      const npc = findNPC(deadId);
       if (npc) {
         populationTracker.recordDeath(npc.age);
       }
