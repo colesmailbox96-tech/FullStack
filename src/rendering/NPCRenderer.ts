@@ -358,6 +358,44 @@ export class NPCRenderer {
         ctx.fillRect(centerX + 2, indicatorY - 2, 1, 1);
         break;
       }
+      case 'GATHER': {
+        // Axe swing animation
+        const swingFrame = Math.floor(tick / 8) % 2;
+        ctx.fillStyle = rgba(160, 120, 60);
+        // Handle
+        ctx.fillRect(centerX - 1, indicatorY - 1, 1, 4);
+        // Blade
+        ctx.fillStyle = rgba(180, 180, 190);
+        if (swingFrame === 0) {
+          ctx.fillRect(centerX - 3, indicatorY - 2, 2, 2);
+        } else {
+          ctx.fillRect(centerX - 3, indicatorY - 1, 2, 2);
+        }
+        break;
+      }
+      case 'CRAFT': {
+        // Hammer animation
+        const hammerFrame = Math.floor(tick / 6) % 2;
+        ctx.fillStyle = rgba(140, 100, 60);
+        // Handle
+        ctx.fillRect(centerX, indicatorY, 1, 3);
+        // Head
+        ctx.fillStyle = rgba(160, 160, 170);
+        if (hammerFrame === 0) {
+          ctx.fillRect(centerX - 1, indicatorY - 2, 3, 2);
+        } else {
+          ctx.fillRect(centerX - 1, indicatorY - 1, 3, 2);
+        }
+        break;
+      }
+      case 'SEEK_SHELTER': {
+        // Running arrow indicator
+        ctx.fillStyle = rgba(255, 150, 50, 0.9);
+        ctx.fillRect(centerX - 1, indicatorY - 2, 3, 1);
+        ctx.fillRect(centerX, indicatorY - 3, 1, 1);
+        ctx.fillRect(centerX, indicatorY - 1, 1, 1);
+        break;
+      }
     }
   }
 
