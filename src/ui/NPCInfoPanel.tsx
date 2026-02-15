@@ -6,6 +6,8 @@ import { getRelationshipLabel, type Relationship } from '../entities/Relationshi
 import type { Memory } from '../entities/Memory';
 import type { ActionType } from '../ai/Action';
 import type { Inventory } from '../entities/Inventory';
+import type { Skills } from '../entities/Skills';
+import { getSkillLabel, getBestSkill } from '../entities/Skills';
 
 const MOOD_EMOJI: Record<string, string> = {
   happy: '😊',
@@ -108,6 +110,7 @@ interface PanelNPC {
   needs: Needs;
   personality: Personality;
   inventory: Inventory;
+  skills: Skills;
   age: number;
   tilesVisited: Set<string>;
   memory: { getTopMemories: (count: number) => Memory[] };
@@ -126,6 +129,7 @@ const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
   const dayAge = Math.floor(npc.age / TICKS_PER_DAY);
   const dominant = getDominantTrait(npc.personality);
   const topRelationships = npc.relationships.getRelationships().slice(0, 5);
+  const bestSkill = getBestSkill(npc.skills);
 
   return (
     <div className="h-full bg-gray-900/95 backdrop-blur-sm border-l md:border-l border-t md:border-t-0 border-gray-700/50 flex flex-col overflow-hidden">
@@ -202,6 +206,25 @@ const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
             <span className="text-right font-mono">{Math.round(npc.personality.industriousness * 100)}%</span>
             <span>🔨 Craftiness</span>
             <span className="text-right font-mono">{Math.round(npc.personality.craftiness * 100)}%</span>
+          </div>
+        </div>
+
+        {/* Skills */}
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">
+            Skills <span className="text-gray-600 normal-case">— {bestSkill.label}</span>
+          </h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
+            <span>🍎 Foraging</span>
+            <span className="text-right font-mono">{getSkillLabel(npc.skills.foraging)}</span>
+            <span>🏗️ Building</span>
+            <span className="text-right font-mono">{getSkillLabel(npc.skills.building)}</span>
+            <span>🔧 Crafting</span>
+            <span className="text-right font-mono">{getSkillLabel(npc.skills.crafting)}</span>
+            <span>🤝 Socializing</span>
+            <span className="text-right font-mono">{getSkillLabel(npc.skills.socializing)}</span>
+            <span>🗺️ Exploring</span>
+            <span className="text-right font-mono">{getSkillLabel(npc.skills.exploring)}</span>
           </div>
         </div>
 

@@ -11,6 +11,8 @@ import { MemorySystem } from './Memory';
 import { Personality, createRandomPersonality } from './Personality';
 import { RelationshipSystem } from './Relationship';
 import { Inventory, createEmptyInventory, addResource, totalResources } from './Inventory';
+import { Skills, createDefaultSkills, grantSkillXP, getSkillBonus } from './Skills';
+import { evaluateTrade, executeTrade } from './Trading';
 import { getAvailableRecipes, craftItem } from '../engine/Crafting';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
@@ -43,6 +45,7 @@ export class NPC {
   personality: Personality;
   relationships: RelationshipSystem;
   inventory: Inventory;
+  skills: Skills;
   appearance: NPCAppearance;
   direction: Direction;
   isMoving: boolean;
@@ -78,6 +81,7 @@ export class NPC {
     this.personality = createRandomPersonality(() => rng.next());
     this.relationships = new RelationshipSystem();
     this.inventory = createEmptyInventory();
+    this.skills = createDefaultSkills();
     this.appearance = {
       skinTone: rng.nextInt(4),
       hairColor: rng.nextInt(6),
@@ -165,7 +169,12 @@ export class NPC {
       }
     }
 
-    this.executeAction(tileMap, objects, config);
+    // Find trade partner for socializing (only when needed)
+    const tradePartner = (this.currentAction === 'SOCIALIZE' && this.targetNpcId)
+      ? allNPCs.find(n => n.id === this.targetNpcId && n.alive) ?? null
+      : null;
+
+    this.executeAction(tileMap, objects, config, tradePartner);
     this.moveAlongPath();
   }
 
@@ -261,7 +270,7 @@ export class NPC {
     }
   }
 
-  private executeAction(tileMap: TileMap, objects: WorldObjectManager, config: WorldConfig): void {
+  private executeAction(tileMap: TileMap, objects: WorldObjectManager, config: WorldConfig, tradePartner: NPC | null): void {
     this.actionTimer++;
 
     switch (this.currentAction) {
@@ -272,7 +281,9 @@ export class NPC {
           if (obj && obj.type === ObjectType.BerryBush) {
             const harvested = objects.harvestObject(obj.id, config.foodRespawnTicks);
             if (harvested) {
-              this.needs.hunger = clamp(this.needs.hunger + 0.3, 0, 1);
+              const bonus = getSkillBonus(this.skills, 'foraging');
+              this.needs.hunger = clamp(this.needs.hunger + 0.3 * bonus, 0, 1);
+              grantSkillXP(this.skills, 'foraging');
               this.memory.addMemory({
                 type: 'found_food',
                 tick: this.age,
@@ -293,12 +304,26 @@ export class NPC {
         break;
       }
       case 'SOCIALIZE': {
+        const socialBonus = getSkillBonus(this.skills, 'socializing');
         this.needs.social = clamp(
-          this.needs.social + config.socialRecovery,
+          this.needs.social + config.socialRecovery * socialBonus,
           0, 1,
         );
+        grantSkillXP(this.skills, 'socializing');
         if (this.targetNpcId) {
           this.relationships.interact(this.targetNpcId, this.age);
+          // Attempt trade with socializing partner
+          if (tradePartner) {
+            const affinity = this.relationships.getRelationship(this.targetNpcId)?.affinity ?? 0;
+            const trade = evaluateTrade(
+              this.inventory, this.needs,
+              tradePartner.inventory, tradePartner.needs,
+              affinity,
+            );
+            if (trade.occurred) {
+              executeTrade(this.inventory, tradePartner.inventory, trade);
+            }
+          }
         }
         break;
       }
@@ -312,6 +337,7 @@ export class NPC {
           const reward = obj ? config.curiosityNewResourceReward : config.curiosityNewTileReward;
           this.needs.curiosity = clamp(this.needs.curiosity + reward, 0, 1);
           this.tilesVisited.add(tileKey);
+          grantSkillXP(this.skills, 'exploring');
           this.memory.addMemory({
             type: 'discovered_area',
             tick: this.age,
@@ -346,6 +372,7 @@ export class NPC {
             if ((obj.type === ObjectType.OakTree || obj.type === ObjectType.PineTree || obj.type === ObjectType.BirchTree)
                 && obj.state !== 'depleted') {
               addResource(this.inventory, 'wood', 1);
+              grantSkillXP(this.skills, 'building');
               this.memory.addMemory({
                 type: 'gathered_resource',
                 tick: this.age,
@@ -356,6 +383,7 @@ export class NPC {
               });
             } else if (obj.type === ObjectType.Rock && obj.state !== 'depleted') {
               addResource(this.inventory, 'stone', 1);
+              grantSkillXP(this.skills, 'building');
               this.memory.addMemory({
                 type: 'gathered_resource',
                 tick: this.age,
@@ -378,6 +406,7 @@ export class NPC {
             const recipe = recipes[0];
             if (craftItem(this.inventory, recipe)) {
               objects.addObjectAt(recipe.result, Math.floor(this.x), Math.floor(this.y));
+              grantSkillXP(this.skills, 'crafting');
               this.memory.addMemory({
                 type: 'crafted_item',
                 tick: this.age,

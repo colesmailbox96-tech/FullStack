@@ -8,6 +8,7 @@ import { WorldConfig, GAMEPLAY_CONFIG } from '../engine/Config';
 import { NPC } from '../entities/NPC';
 import { NPCManager } from '../entities/NPCManager';
 import { EventLog } from '../data/EventLog';
+import { AchievementSystem } from '../data/Achievements';
 
 export interface SimulationSnapshot {
   tick: number;
@@ -23,6 +24,7 @@ export interface SimulationSnapshot {
   seed: number;
   npcManager: NPCManager;
   eventLog: EventLog;
+  achievementSystem: AchievementSystem;
 }
 
 interface SimulationStore {
@@ -35,6 +37,7 @@ interface SimulationStore {
   volume: number;
   showDebug: boolean;
   showEventLog: boolean;
+  showAchievements: boolean;
   showWelcome: boolean;
 
   initWorld: (seed: number) => void;
@@ -45,6 +48,7 @@ interface SimulationStore {
   setVolume: (volume: number) => void;
   toggleDebug: () => void;
   toggleEventLog: () => void;
+  toggleAchievements: () => void;
   setShowWelcome: (show: boolean) => void;
 }
 
@@ -58,6 +62,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
   volume: 0.5,
   showDebug: false,
   showEventLog: false,
+  showAchievements: false,
   showWelcome: true,
 
   initWorld: (seed: number) => {
@@ -70,6 +75,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
     const npcManager = new NPCManager(seed);
     npcManager.spawnInitial(config.initialNPCCount, tileMap, config);
     const eventLog = new EventLog();
+    const achievementSystem = new AchievementSystem();
 
     set({
       state: {
@@ -86,6 +92,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
         seed,
         npcManager,
         eventLog,
+        achievementSystem,
       },
       cameraX: config.worldSize / 2,
       cameraY: config.worldSize / 2,
@@ -155,6 +162,40 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
       });
     }
 
+    // Check achievements (every 60 ticks to avoid per-tick overhead)
+    if (currentTick % 60 === 0) {
+      const aliveNPCs = npcManager.getAliveNPCs();
+      const hasCloseFriendship = aliveNPCs.some(
+        n => n.relationships.getRelationships().some(r => r.affinity >= 0.7)
+      );
+      const hasMasterForager = aliveNPCs.some(n => n.skills.foraging >= 0.8);
+      const maxTilesExplored = aliveNPCs.reduce(
+        (max, n) => Math.max(max, n.tilesVisited.size), 0
+      );
+      const craftedCampfire = aliveNPCs.some(
+        n => n.memory.getMemoriesByType('crafted_item').length > 0
+      );
+
+      const newAchievements = state.achievementSystem.check({
+        tick: currentTick,
+        aliveCount: aliveNPCs.length,
+        weather: weather.current,
+        season: timeSystem.season,
+        craftedCampfire,
+        hasCloseFriendship,
+        hasMasterForager,
+        maxTilesExplored,
+      });
+
+      for (const ach of newAchievements) {
+        eventLog.addEvent({
+          tick: currentTick,
+          type: 'npc_crafted',
+          description: `🏆 Achievement: ${ach.title}`,
+        });
+      }
+    }
+
     set({
       state: {
         ...state,
@@ -198,6 +239,10 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
 
   toggleEventLog: () => {
     set(s => ({ showEventLog: !s.showEventLog }));
+  },
+
+  toggleAchievements: () => {
+    set(s => ({ showAchievements: !s.showAchievements }));
   },
 
   setShowWelcome: (show: boolean) => {
