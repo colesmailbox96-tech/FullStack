@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   console.log('=== ML Test Suite ===\n');
 
   const brain = new BehaviorTreeBrain();
-  const log = generateSyntheticLog(brain, 1000);
+  const log = generateSyntheticLog(brain, 25000);
 
   // 1. Data Quality
   console.log('--- Data Quality ---');
