@@ -14,6 +14,7 @@ interface NearbyObject {
 interface MemoryEntry {
   type: string;
   ticks_ago: number;
+  significance?: number;
 }
 
 interface Perception {
@@ -24,6 +25,9 @@ interface Perception {
   top_memories: MemoryEntry[];
   weather: string;
   time_of_day: number;
+  season?: string;
+  camera_x?: number;
+  camera_y?: number;
 }
 
 interface Outcome {

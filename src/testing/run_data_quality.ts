@@ -13,7 +13,7 @@ async function main(): Promise<void> {
   console.log('=== Data Quality Analysis ===\n');
 
   const brain = new BehaviorTreeBrain();
-  const log = generateSyntheticLog(brain, 1000);
+  const log = generateSyntheticLog(brain, 25000);
 
   const analyzer = new DataQualityAnalyzer();
   const report = analyzer.analyze(log);

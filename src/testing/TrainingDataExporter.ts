@@ -123,9 +123,7 @@ export function encodePerception(p: DecisionLog['perception'], tick: number): nu
   // 5-7: environment
   vec[5] = p.time_of_day ?? 0;
   vec[6] = WEATHER_CODES[p.weather] ?? 0;
-  // Season is not present in the DecisionLog perception format;
-  // will be populated once the logging pipeline includes season data.
-  vec[7] = 0;
+  vec[7] = SEASON_CODES[p.season ?? ''] ?? 0;
 
   // 8-11: terrain summary
   const tileSummary = p.nearby_tiles_summary ?? {};
@@ -168,13 +166,13 @@ export function encodePerception(p: DecisionLog['perception'], tick: number): nu
     if (i < memories.length) {
       vec[base] = MEMORY_TYPE_CODES[memories[i].type] ?? 0;
       vec[base + 1] = memories[i].ticks_ago ?? 0;
-      vec[base + 2] = 0; // significance not in DecisionLog perception
+      vec[base + 2] = memories[i].significance ?? 0;
     }
   }
 
   // 27-29: player awareness (camera)
-  vec[27] = 0; // cameraX - not in DecisionLog perception
-  vec[28] = 0; // cameraY - not in DecisionLog perception
+  vec[27] = p.camera_x ?? 0;
+  vec[28] = p.camera_y ?? 0;
   vec[29] = 0; // cameraDwell
 
   return vec;

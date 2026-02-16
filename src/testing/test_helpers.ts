@@ -138,18 +138,19 @@ export function generateSyntheticLog(brain: IBrain, count: number): DecisionLog[
     // Diverse memories with varying counts (1-3) and types
     const memTypeIdx = i % MEMORY_TYPES.length;
     const memTicksAgo = 10 + (i % 200);
+    const memSignificance = 0.3 + (i % 7) * 0.1;
     const topMemories = [
-      { type: MEMORY_TYPES[memTypeIdx], ticks_ago: memTicksAgo },
+      { type: MEMORY_TYPES[memTypeIdx], ticks_ago: memTicksAgo, significance: memSignificance },
     ];
     // Add second memory ~50% of the time
     if (i % 2 === 0) {
       const memTypeIdx2 = (i + 2) % MEMORY_TYPES.length;
-      topMemories.push({ type: MEMORY_TYPES[memTypeIdx2], ticks_ago: memTicksAgo + 50 });
+      topMemories.push({ type: MEMORY_TYPES[memTypeIdx2], ticks_ago: memTicksAgo + 50, significance: memSignificance * 0.8 });
     }
     // Add third memory ~25% of the time
     if (i % 4 === 0) {
       const memTypeIdx3 = (i + 4) % MEMORY_TYPES.length;
-      topMemories.push({ type: MEMORY_TYPES[memTypeIdx3], ticks_ago: memTicksAgo + 100 });
+      topMemories.push({ type: MEMORY_TYPES[memTypeIdx3], ticks_ago: memTicksAgo + 100, significance: memSignificance * 0.6 });
     }
 
     const relevantMemories = topMemories.map(m => ({
@@ -211,6 +212,9 @@ export function generateSyntheticLog(brain: IBrain, count: number): DecisionLog[
       top_memories: topMemories,
       weather,
       time_of_day: timeOfDay,
+      season: SEASONS[seasonIdx],
+      camera_x: cx + (i % 5) - 2,
+      camera_y: cy + ((i * 3) % 5) - 2,
     };
 
     // Simulate outcome — apply need restoration when action fires
