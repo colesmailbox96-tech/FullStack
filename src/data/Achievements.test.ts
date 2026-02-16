@@ -113,6 +113,6 @@ describe('AchievementSystem', () => {
 
   it('getTotal returns correct count', () => {
     const sys = new AchievementSystem();
-    expect(sys.getTotal()).toBe(8);
+    expect(sys.getTotal()).toBe(13);
   });
 });

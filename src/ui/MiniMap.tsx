@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useSimulation } from '../engine/SimulationState';
 import { TileType } from '../world/TileMap';
+import { ObjectType } from '../world/WorldObject';
 import type { TileMap } from '../world/TileMap';
+import type { WorldObject } from '../world/WorldObject';
 
 const MINIMAP_SIZE = 120;
 const MINIMAP_SIZE_MOBILE = 90;
@@ -29,6 +31,7 @@ function drawMinimap(
   canvasW: number,
   canvasH: number,
   minimapSize: number,
+  structures?: WorldObject[],
 ): void {
   const scale = minimapSize / tileMap.width;
 
@@ -56,6 +59,37 @@ function drawMinimap(
     const px = Math.floor(npc.x * scale);
     const py = Math.floor(npc.y * scale);
     ctx.fillRect(px, py, Math.max(2, Math.ceil(scale)), Math.max(2, Math.ceil(scale)));
+  }
+
+  // Draw structures as colored squares
+  const STRUCTURE_COLORS: Partial<Record<string, string>> = {
+    [ObjectType.Hut]: '#8B5E3C',
+    [ObjectType.Farm]: '#4CAF50',
+    [ObjectType.Well]: '#2196F3',
+    [ObjectType.Storehouse]: '#5D4037',
+    [ObjectType.Watchtower]: '#9E9E9E',
+    [ObjectType.MeetingHall]: '#FFD700',
+  };
+
+  if (structures) {
+    for (const obj of structures) {
+      const px = Math.floor(obj.x * scale);
+      const py = Math.floor(obj.y * scale);
+      const sz = Math.max(3, Math.ceil(scale * 1.5));
+
+      if (obj.type === ObjectType.ConstructionSite) {
+        // Yellow outline, no fill
+        ctx.strokeStyle = '#FFEB3B';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px, py, sz, sz);
+      } else {
+        const color = STRUCTURE_COLORS[obj.type];
+        if (color) {
+          ctx.fillStyle = color;
+          ctx.fillRect(px, py, sz, sz);
+        }
+      }
+    }
   }
 
   // Draw camera viewport rectangle
@@ -87,11 +121,15 @@ const MiniMap: React.FC = () => {
     const winW = window.innerWidth;
     const winH = window.innerHeight;
 
+    const structureObjects = state.objects.getObjects().filter(
+      (o: WorldObject) => o.structureData !== undefined
+    );
+
     const desktopCanvas = canvasRef.current;
     if (desktopCanvas) {
       const ctx = desktopCanvas.getContext('2d');
       if (ctx) {
-        drawMinimap(ctx, state.tileMap, state.npcs, cameraX, cameraY, cameraZoom, winW, winH, desktopCanvas.width);
+        drawMinimap(ctx, state.tileMap, state.npcs, cameraX, cameraY, cameraZoom, winW, winH, desktopCanvas.width, structureObjects);
       }
     }
 
@@ -99,7 +137,7 @@ const MiniMap: React.FC = () => {
     if (mobileCanvas) {
       const ctx = mobileCanvas.getContext('2d');
       if (ctx) {
-        drawMinimap(ctx, state.tileMap, state.npcs, cameraX, cameraY, cameraZoom, winW, winH, mobileCanvas.width);
+        drawMinimap(ctx, state.tileMap, state.npcs, cameraX, cameraY, cameraZoom, winW, winH, mobileCanvas.width, structureObjects);
       }
     }
   }, [state, cameraX, cameraY, cameraZoom]);

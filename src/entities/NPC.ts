@@ -22,6 +22,8 @@ import { FatigueTracker } from './Fatigue';
 import { StatusEffectManager, evaluateStatusEffects } from './StatusEffects';
 import { TerritorySystem } from './Territory';
 import { ReputationSystem, REPUTATION_PER_TRADE, REPUTATION_PER_CRAFT, REPUTATION_PER_SOCIAL } from './Reputation';
+import { REPUTATION_PER_BUILD } from './Structure';
+import type { StructureManager } from './Structure';
 import { TitleTracker, checkTitleEligibility } from './Titles';
 import { determineMood, type MoodEmote } from './MoodEmotes';
 import { getAgeTier, type AgeTierType } from './AgeTier';
@@ -39,6 +41,12 @@ const MOVE_TICKS = 8;
 const FORAGE_TICKS = 30;
 const MOVING_ENERGY_MULTIPLIER = 1.5;
 const IDLE_ENERGY_DRAIN_BASE = 0.003;
+/** Maximum top memories to consider for knowledge sharing */
+const KNOWLEDGE_SHARE_POOL_SIZE = 10;
+/** Maximum memories to transfer per socialization */
+const KNOWLEDGE_SHARE_MAX = 2;
+/** Position proximity threshold for duplicate memory detection */
+const MEMORY_POSITION_THRESHOLD = 2;
 
 const brain = new BehaviorTreeBrain();
 
@@ -98,6 +106,10 @@ export class NPC {
   survivedStorm: boolean;
   /** Currently equipped tool, if any */
   equippedTool: ToolInfo | null;
+  /** Tick of last reproduction event (for spawning cooldown) */
+  lastReproductionTick: number;
+  /** Number of structures this NPC has contributed to */
+  buildContributions: number;
 
   private rng: Random;
 
@@ -153,6 +165,8 @@ export class NPC {
     this.craftCount = 0;
     this.survivedStorm = false;
     this.equippedTool = null;
+    this.lastReproductionTick = 0;
+    this.buildContributions = 0;
   }
 
   update(
@@ -163,6 +177,7 @@ export class NPC {
     objects: WorldObjectManager,
     allNPCs: NPC[],
     weatherSystem: Weather,
+    structureManager?: StructureManager,
   ): void {
     if (!this.alive) {
       this.deathAnimation = clamp(this.deathAnimation + 0.05, 0, 1);
@@ -177,12 +192,12 @@ export class NPC {
     this.ageTier = getAgeTier(this.age);
 
     const nearbyNPCs = this.getNearbyNPCs(allNPCs, config.socialRange);
-    this.updateNeeds(config, weather, timeSystem, nearbyNPCs, tileMap);
+    this.updateNeeds(config, weather, timeSystem, nearbyNPCs, tileMap, structureManager);
     this.memory.update(config.memoryDecayRate);
     this.relationships.update(config.memoryDecayRate * 0.5);
 
     // Update status effects
-    const inShelter = this.isInShelter(tileMap);
+    const inShelter = this.isInShelter(tileMap, structureManager);
     const isStorm = weather === 'storm';
     const isNight = timeSystem.isNight();
     const effectChanges = evaluateStatusEffects(
@@ -267,7 +282,7 @@ export class NPC {
       ? allNPCs.find(n => n.id === this.targetNpcId && n.alive) ?? null
       : null;
 
-    this.executeAction(tileMap, objects, config, tradePartner);
+    this.executeAction(tileMap, objects, config, tradePartner, structureManager, allNPCs);
     this.moveAlongPath();
   }
 
@@ -277,11 +292,15 @@ export class NPC {
     timeSystem: TimeSystem,
     nearbyNPCs: NPC[],
     tileMap: TileMap,
+    structureManager?: StructureManager,
   ): void {
     const isStorm = weather === 'storm';
     const isRain = weather === 'rain';
     const isNight = timeSystem.isNight();
-    const inShelter = this.isInShelter(tileMap);
+    const inShelter = this.isInShelter(tileMap, structureManager);
+
+    // Query structure effects at current position
+    const effects = structureManager?.getStructureEffects(this.x, this.y);
 
     // --- Hunger drain ---
     // Fix 1 & 2: Moving costs more hunger; storms burn extra calories.
@@ -297,7 +316,9 @@ export class NPC {
     let energyDrain: number;
     if (this.currentAction === 'REST') {
       // REST provides net recovery instead of drain
-      const restRecovery = inShelter ? 0.03 : 0.015;
+      let restRecovery = inShelter ? 0.03 : 0.015;
+      // Well bonus: +25% energy recovery during REST
+      if (effects?.nearWell) restRecovery *= 1.25;
       this.needs.energy = clamp(this.needs.energy + restRecovery, 0, 1);
       energyDrain = 0; // skip normal drain path
     } else {
@@ -346,7 +367,11 @@ export class NPC {
     // Fix 2: Storm drops safety 0.04/tick, rain 0.01/tick, night outdoors
     // 0.02/tick. Night + storm stacks to 0.06/tick.
     if (isStorm) {
-      this.needs.safety = clamp(this.needs.safety - config.stormSafetyPenalty, 0, 1);
+      // Watchtower reduces storm safety drain by 30%
+      const stormPenalty = effects?.nearWatchtower
+        ? config.stormSafetyPenalty * 0.7
+        : config.stormSafetyPenalty;
+      this.needs.safety = clamp(this.needs.safety - stormPenalty, 0, 1);
     }
     if (isRain && !isStorm) {
       this.needs.safety = clamp(this.needs.safety - config.rainSafetyPenalty, 0, 1);
@@ -356,14 +381,17 @@ export class NPC {
     }
 
     // Safety recovery in shelter or calm daytime
+    // Hut and Watchtower provide +50% safety recovery
+    let safetyRecovery = config.safetyRecovery;
+    if (effects?.nearHut || effects?.nearWatchtower) safetyRecovery *= 1.5;
     if (!isNight || inShelter) {
       if (!isStorm) {
-        this.needs.safety = clamp(this.needs.safety + config.safetyRecovery, 0, 1);
+        this.needs.safety = clamp(this.needs.safety + safetyRecovery, 0, 1);
       }
     }
   }
 
-  private executeAction(tileMap: TileMap, objects: WorldObjectManager, config: WorldConfig, tradePartner: NPC | null): void {
+  private executeAction(tileMap: TileMap, objects: WorldObjectManager, config: WorldConfig, tradePartner: NPC | null, structureManager?: StructureManager, allNPCs?: NPC[]): void {
     this.actionTimer++;
 
     switch (this.currentAction) {
@@ -395,13 +423,16 @@ export class NPC {
         // REST recovery is handled in updateNeeds to ensure consistent
         // drain/recovery ordering each tick. No additional recovery here.
         // Update fatigue during rest
-        this.fatigue.rest(this.isInShelter(tileMap));
+        this.fatigue.rest(this.isInShelter(tileMap, structureManager));
         break;
       }
       case 'SOCIALIZE': {
         const socialBonus = getSkillBonus(this.skills, 'socializing');
+        // Meeting Hall doubles social recovery rate
+        const meetingHallEffects = structureManager?.getStructureEffects(this.x, this.y);
+        const socialMultiplier = meetingHallEffects?.nearMeetingHall ? 2 : 1;
         this.needs.social = clamp(
-          this.needs.social + config.socialRecovery * socialBonus,
+          this.needs.social + config.socialRecovery * socialBonus * socialMultiplier,
           0, 1,
         );
         grantSkillXP(this.skills, 'socializing');
@@ -420,6 +451,8 @@ export class NPC {
               executeTrade(this.inventory, tradePartner.inventory, trade);
               this.reputation.addReputation(REPUTATION_PER_TRADE, 'trading');
             }
+            // Knowledge sharing: exchange memories with partner
+            this.shareKnowledge(tradePartner);
           }
         }
         break;
@@ -530,6 +563,43 @@ export class NPC {
         }
         break;
       }
+      case 'BUILD': {
+        if (structureManager && this.actionTimer >= config.buildTicks) {
+          // Find the construction site at our target location
+          const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
+          if (obj && obj.type === ObjectType.ConstructionSite && obj.structureData) {
+            const contributed = structureManager.contributeResources(obj.id, this.id, this.inventory);
+            if (contributed) {
+              grantSkillXP(this.skills, 'building');
+              this.buildContributions++;
+              // Check if structure is now complete
+              if (structureManager.checkCompletion(obj.id, this.age)) {
+                // All contributors get reputation boost and memory
+                for (const contributorId of obj.structureData.contributors) {
+                  const contributor = allNPCs?.find(n => n.id === contributorId);
+                  if (contributor) {
+                    contributor.reputation.addReputation(REPUTATION_PER_BUILD, 'building');
+                    contributor.memory.addMemory({
+                      type: 'built_structure',
+                      tick: contributor.age,
+                      x: obj.x,
+                      y: obj.y,
+                      significance: 0.9,
+                      detail: obj.structureData.structureType,
+                    });
+                  }
+                }
+                // Completing NPC claims territory if they have no home
+                if (!this.territory.hasHome()) {
+                  this.territory.claimHome(Math.floor(obj.x), Math.floor(obj.y), this.age);
+                }
+              }
+            }
+          }
+          this.actionTimer = 0;
+        }
+        break;
+      }
     }
   }
 
@@ -574,7 +644,7 @@ export class NPC {
     );
   }
 
-  isInShelter(tileMap: TileMap): boolean {
+  isInShelter(tileMap: TileMap, structureManager?: StructureManager): boolean {
     // Near cave wall
     for (let dy = -2; dy <= 2; dy++) {
       for (let dx = -2; dx <= 2; dx++) {
@@ -582,6 +652,58 @@ export class NPC {
         if (tile && tile.type === TileType.CaveWall) return true;
       }
     }
+    // Near a completed Hut (within 3 tiles)
+    if (structureManager) {
+      const effects = structureManager.getStructureEffects(this.x, this.y);
+      if (effects.nearHut) return true;
+    }
     return false;
+  }
+
+  /**
+   * Share knowledge (memories) with a socializing partner.
+   * Transfers up to 2 high-significance memories to the partner,
+   * with significance decay. Danger memories shared at full significance.
+   */
+  private shareKnowledge(partner: NPC): void {
+    const myMemories = this.memory.getTopMemories(KNOWLEDGE_SHARE_POOL_SIZE);
+    let shared = 0;
+
+    for (const mem of myMemories) {
+      if (shared >= KNOWLEDGE_SHARE_MAX) break;
+
+      // Don't re-share memories that originated from the same source
+      const sourceId = mem.sourceNpcId ?? this.id;
+      const partnerMemories = partner.memory.getMemories();
+      const alreadyHas = partnerMemories.some(
+        pm => pm.sourceNpcId === sourceId && pm.type === mem.type &&
+              Math.abs(pm.x - mem.x) < MEMORY_POSITION_THRESHOLD && Math.abs(pm.y - mem.y) < MEMORY_POSITION_THRESHOLD
+      );
+      if (alreadyHas) continue;
+
+      // Danger and npc_died memories shared at full significance
+      const isDanger = mem.type === 'danger' || mem.type === 'npc_died';
+      const significance = isDanger ? mem.significance : mem.significance * 0.5;
+
+      // Food/shelter knowledge: share if partner doesn't have memories near that location
+      if (mem.type === 'found_food' || mem.type === 'found_shelter') {
+        const partnerHasNearby = partnerMemories.some(
+          pm => pm.type === mem.type && distance(pm.x, pm.y, mem.x, mem.y) < 10
+        );
+        if (partnerHasNearby) continue;
+      }
+
+      partner.memory.addMemory({
+        type: mem.type,
+        tick: partner.age,
+        x: mem.x,
+        y: mem.y,
+        significance,
+        relatedNpcId: mem.relatedNpcId,
+        detail: mem.detail,
+        sourceNpcId: sourceId,
+      });
+      shared++;
+    }
   }
 }

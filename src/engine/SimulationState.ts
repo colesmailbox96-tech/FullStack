@@ -11,6 +11,8 @@ import { EventLog } from '../data/EventLog';
 import { AchievementSystem } from '../data/Achievements';
 import { SeasonalEventManager } from '../world/SeasonalEvents';
 import { PopulationTracker } from '../data/PopulationStats';
+import { StructureManager } from '../entities/Structure';
+import { SettlementManager } from '../entities/Settlement';
 
 export interface SimulationSnapshot {
   tick: number;
@@ -29,6 +31,8 @@ export interface SimulationSnapshot {
   achievementSystem: AchievementSystem;
   seasonalEvents: SeasonalEventManager;
   populationTracker: PopulationTracker;
+  structureManager: StructureManager;
+  settlementManager: SettlementManager;
 }
 
 interface SimulationStore {
@@ -88,6 +92,8 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
     const achievementSystem = new AchievementSystem();
     const seasonalEvents = new SeasonalEventManager();
     const populationTracker = new PopulationTracker();
+    const structureManager = new StructureManager(objects);
+    const settlementManager = new SettlementManager();
 
     set({
       state: {
@@ -107,6 +113,8 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
         achievementSystem,
         seasonalEvents,
         populationTracker,
+        structureManager,
+        settlementManager,
       },
       cameraX: config.worldSize / 2,
       cameraY: config.worldSize / 2,
@@ -118,7 +126,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
     const { state } = get();
     if (!state || !state.isRunning) return;
 
-    const { timeSystem, weather, objects, npcManager, tileMap, config, eventLog, seasonalEvents, populationTracker } = state;
+    const { timeSystem, weather, objects, npcManager, tileMap, config, eventLog, seasonalEvents, populationTracker, structureManager, settlementManager } = state;
 
     const prevWeather = weather.current;
     const prevSeason = timeSystem.season;
@@ -128,7 +136,8 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
     timeSystem.update();
     weather.update(timeSystem.season, config);
     objects.update(timeSystem.tick, config, timeSystem.season);
-    npcManager.update(config, weather.current, timeSystem, tileMap, objects, weather);
+    structureManager.updateStructures(timeSystem.tick, config, timeSystem.season, tileMap);
+    npcManager.update(config, weather.current, timeSystem, tileMap, objects, weather, structureManager);
 
     const currentTick = state.tick + 1;
 
@@ -208,6 +217,21 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
       }
     }
 
+    // Settlement detection (every 120 ticks)
+    if (currentTick % 120 === 0) {
+      const completedStructures = structureManager.getCompletedStructures();
+      const newSettlements = settlementManager.detectSettlements(completedStructures, currentTick, config);
+      settlementManager.assignResidents(currentAlive);
+
+      for (const settlement of newSettlements) {
+        eventLog.addEvent({
+          tick: currentTick,
+          type: 'settlement_formed',
+          description: `🏘️ Settlement "${settlement.name}" has formed!`,
+        });
+      }
+    }
+
     // Check achievements (every 60 ticks to avoid per-tick overhead)
     if (currentTick % 60 === 0) {
       const aliveNPCs = npcManager.getAliveNPCs();
@@ -222,6 +246,14 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
         n => n.memory.getMemoriesByType('crafted_item').length > 0
       );
 
+      const completedStructureCount = structureManager.getCompletedStructures().length;
+      const settlements = settlementManager.getSettlements();
+      const hasMasterBuilder = aliveNPCs.some(n => n.skills.building >= 0.8);
+      const hasThrivingSettlement = settlements.some(
+        s => s.structureIds.length >= 5 && s.residentNpcIds.length >= 10
+      );
+      const hasArchitect = aliveNPCs.some(n => n.buildContributions >= 5);
+
       const newAchievements = state.achievementSystem.check({
         tick: currentTick,
         aliveCount: aliveNPCs.length,
@@ -231,6 +263,11 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
         hasCloseFriendship,
         hasMasterForager,
         maxTilesExplored,
+        completedStructureCount,
+        settlementCount: settlements.length,
+        hasMasterBuilder,
+        hasThrivingSettlement,
+        hasArchitect,
       });
 
       for (const ach of newAchievements) {

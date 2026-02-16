@@ -43,6 +43,8 @@ function buildPerception(
     nearbyTiles: [],
     nearbyObjects: [],
     nearbyNPCs: [],
+    nearbyConstructionSites: [],
+    nearbyStructures: [],
     needs: { ...needs },
     personality: { bravery: 0.5, sociability: 0.5, curiosity: 0.5, industriousness: 0.5, craftiness: 0.5 },
     inventory: { wood: 0, stone: 0, berries: 0 },

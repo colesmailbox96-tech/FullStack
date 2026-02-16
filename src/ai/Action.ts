@@ -1,4 +1,4 @@
-export type ActionType = 'FORAGE' | 'REST' | 'SEEK_SHELTER' | 'EXPLORE' | 'SOCIALIZE' | 'IDLE' | 'GATHER' | 'CRAFT';
+export type ActionType = 'FORAGE' | 'REST' | 'SEEK_SHELTER' | 'EXPLORE' | 'SOCIALIZE' | 'IDLE' | 'GATHER' | 'CRAFT' | 'BUILD';
 
 export interface Action {
   type: ActionType;

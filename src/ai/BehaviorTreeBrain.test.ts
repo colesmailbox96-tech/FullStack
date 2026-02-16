@@ -15,6 +15,8 @@ function makePerception(overrides: Partial<Perception> = {}): Perception {
     ],
     nearbyObjects: [],
     nearbyNPCs: [],
+    nearbyConstructionSites: [],
+    nearbyStructures: [],
     needs: { hunger: 0.8, energy: 0.8, social: 0.8, curiosity: 0.8, safety: 0.8 },
     personality: { bravery: 0.5, sociability: 0.5, curiosity: 0.5, industriousness: 0.5, craftiness: 0.5 },
     inventory: { wood: 0, stone: 0, berries: 0 },
@@ -283,6 +285,53 @@ describe('BehaviorTreeBrain', () => {
       });
       const action = brain.decide(p);
       expect(action.type).not.toBe('CRAFT');
+    });
+  });
+
+  describe('build behavior', () => {
+    it('builds when construction site nearby and has resources', () => {
+      const p = makePerception({
+        nearbyConstructionSites: [
+          { id: 'site_1', type: ObjectType.ConstructionSite, x: 7, y: 7, state: 'normal' },
+        ],
+        inventory: { wood: 2, stone: 1, berries: 0 },
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('BUILD');
+      expect(action.targetX).toBe(7);
+      expect(action.targetY).toBe(7);
+    });
+
+    it('does not build when no resources available', () => {
+      const p = makePerception({
+        nearbyConstructionSites: [
+          { id: 'site_1', type: ObjectType.ConstructionSite, x: 7, y: 7, state: 'normal' },
+        ],
+        inventory: { wood: 0, stone: 0, berries: 0 },
+      });
+      const action = brain.decide(p);
+      expect(action.type).not.toBe('BUILD');
+    });
+
+    it('does not build when no construction sites nearby', () => {
+      const p = makePerception({
+        nearbyConstructionSites: [],
+        inventory: { wood: 5, stone: 3, berries: 0 },
+      });
+      const action = brain.decide(p);
+      expect(action.type).not.toBe('BUILD');
+    });
+
+    it('prefers craft over build when both available', () => {
+      const p = makePerception({
+        nearbyConstructionSites: [
+          { id: 'site_1', type: ObjectType.ConstructionSite, x: 7, y: 7, state: 'normal' },
+        ],
+        inventory: { wood: 3, stone: 2, berries: 0 },
+      });
+      const action = brain.decide(p);
+      // CRAFT is priority 12, BUILD is 12.5, so craft comes first
+      expect(action.type).toBe('CRAFT');
     });
   });
 });

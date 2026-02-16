@@ -25,6 +25,7 @@ const ACTION_LABEL: Record<ActionType, string> = {
   IDLE: '⏳ Idle',
   GATHER: '🪓 Gathering',
   CRAFT: '🔨 Crafting',
+  BUILD: '🏗️ Building',
 };
 
 const MEMORY_LABEL: Record<string, string> = {
@@ -36,6 +37,7 @@ const MEMORY_LABEL: Record<string, string> = {
   npc_died: '💀 Witnessed death',
   crafted_item: '🔨 Crafted item',
   gathered_resource: '🪓 Gathered resource',
+  built_structure: '🏗️ Built structure',
 };
 
 interface NeedBarProps {
@@ -123,6 +125,7 @@ interface PanelContentProps {
 }
 
 const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
+  const state = useSimulation(s => s.state);
   const mood = getMood(npc.needs);
   const idNum = npc.id.replace(/\D/g, '') || npc.id;
   const topMemories = npc.memory.getTopMemories(5);
@@ -130,6 +133,7 @@ const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
   const dominant = getDominantTrait(npc.personality);
   const topRelationships = npc.relationships.getRelationships().slice(0, 5);
   const bestSkill = getBestSkill(npc.skills);
+  const settlement = state?.settlementManager?.getSettlementForNPC(npc.id);
 
   return (
     <div className="h-full bg-gray-900/95 backdrop-blur-sm border-l md:border-l border-t md:border-t-0 border-gray-700/50 flex flex-col overflow-hidden">
@@ -139,6 +143,9 @@ const PanelContent: React.FC<PanelContentProps> = ({ npc, onClose }) => {
           <h2 className="text-sm font-bold text-white">
             Villager #{idNum}
           </h2>
+          {settlement && (
+            <span className="text-xs text-emerald-400">🏘️ {settlement.name}</span>
+          )}
           <span className="text-xs text-gray-400">
             {npc.alive ? (
               <>{MOOD_EMOJI[mood]} {mood}</>

@@ -8,6 +8,7 @@ import { WorldConfig } from '../engine/Config';
 import { NPC } from './NPC';
 import { LineageTracker } from './Lineage';
 import type { SkillType } from './Skills';
+import type { StructureManager } from './Structure';
 
 /** Range within which alive NPCs observe a death and learn from it. */
 const DEATH_OBSERVATION_RANGE = 15;
@@ -50,12 +51,13 @@ export class NPCManager {
     tileMap: TileMap,
     objects: WorldObjectManager,
     weatherSystem: Weather,
+    structureManager?: StructureManager,
   ): void {
     // Snapshot alive set before NPC updates so we can detect new deaths
     const aliveBeforeUpdate = new Set(this.npcs.filter(n => n.alive).map(n => n.id));
 
     for (const npc of this.npcs) {
-      npc.update(config, weather, timeSystem, tileMap, objects, this.npcs, weatherSystem);
+      npc.update(config, weather, timeSystem, tileMap, objects, this.npcs, weatherSystem, structureManager);
     }
 
     // Detect newly dead NPCs and let nearby alive NPCs learn from the death
@@ -67,7 +69,7 @@ export class NPCManager {
 
     // Remove dead NPCs whose death animation has completed
     this.npcs = this.npcs.filter(npc => npc.alive || npc.deathAnimation < 1);
-    this.checkSpawning(config, tileMap);
+    this.checkSpawning(config, tileMap, structureManager);
   }
 
   getNPCs(): NPC[] {
@@ -141,7 +143,7 @@ export class NPCManager {
     }
   }
 
-  private checkSpawning(config: WorldConfig, tileMap: TileMap): void {
+  private checkSpawning(config: WorldConfig, tileMap: TileMap, structureManager?: StructureManager): void {
     const alive = this.getAliveNPCs();
 
     // Do not exceed maximum population
@@ -154,9 +156,24 @@ export class NPCManager {
       for (let j = i + 1; j < alive.length; j++) {
         const a = alive[i];
         const b = alive[j];
+
+        // Per-NPC reproduction cooldown
+        if (a.lastReproductionTick > 0 && a.age - a.lastReproductionTick < config.socialBondTicks) continue;
+        if (b.lastReproductionTick > 0 && b.age - b.lastReproductionTick < config.socialBondTicks) continue;
+
+        // Meeting Hall reduces social bond threshold by 10%
+        let threshold = config.socialBondThreshold;
+        if (structureManager) {
+          const aEffects = structureManager.getStructureEffects(a.x, a.y);
+          const bEffects = structureManager.getStructureEffects(b.x, b.y);
+          if (aEffects.nearMeetingHall && bEffects.nearMeetingHall) {
+            threshold *= 0.9;
+          }
+        }
+
         if (
-          a.needs.social > config.socialBondThreshold &&
-          b.needs.social > config.socialBondThreshold &&
+          a.needs.social > threshold &&
+          b.needs.social > threshold &&
           distance(a.x, a.y, b.x, b.y) <= config.socialRange &&
           a.age > config.socialBondTicks &&
           b.age > config.socialBondTicks
@@ -175,6 +192,9 @@ export class NPCManager {
             // Reset parents' social bond timers by reducing social slightly
             a.needs.social *= 0.5;
             b.needs.social *= 0.5;
+            // Set reproduction cooldown
+            a.lastReproductionTick = a.age;
+            b.lastReproductionTick = b.age;
             return;
           }
         }
