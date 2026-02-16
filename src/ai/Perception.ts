@@ -40,6 +40,8 @@ export interface Perception {
   nearbyTiles: TileInfo[];
   nearbyObjects: ObjectInfo[];
   nearbyNPCs: NPCInfo[];
+  nearbyConstructionSites: ObjectInfo[];
+  nearbyStructures: ObjectInfo[];
   needs: Needs;
   personality: Personality;
   inventory: Inventory;
@@ -94,6 +96,14 @@ export function buildPerception(
     state: obj.state,
   }));
 
+  const nearbyConstructionSites: ObjectInfo[] = nearbyWorldObjects
+    .filter(obj => obj.type === ObjectType.ConstructionSite && obj.structureData && obj.structureData.completedAt === null)
+    .map(obj => ({ id: obj.id, type: obj.type, x: obj.x, y: obj.y, state: obj.state }));
+
+  const nearbyStructures: ObjectInfo[] = nearbyWorldObjects
+    .filter(obj => obj.structureData && obj.structureData.completedAt !== null)
+    .map(obj => ({ id: obj.id, type: obj.type, x: obj.x, y: obj.y, state: obj.state }));
+
   const nearbyNPCEntities = npc.getNearbyNPCs(allNPCs, PERCEPTION_RADIUS);
   const nearbyNPCs: NPCInfo[] = nearbyNPCEntities.map(other => ({
     id: other.id,
@@ -110,6 +120,8 @@ export function buildPerception(
     nearbyTiles,
     nearbyObjects,
     nearbyNPCs,
+    nearbyConstructionSites,
+    nearbyStructures,
     needs: { ...npc.needs },
     personality: { ...npc.personality },
     inventory: { ...npc.inventory },

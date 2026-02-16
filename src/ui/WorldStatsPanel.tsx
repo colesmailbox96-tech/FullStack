@@ -28,6 +28,7 @@ const ACTION_LABEL: Record<ActionType, string> = {
   IDLE: '⏳ Idle',
   GATHER: '🪓 Gather',
   CRAFT: '🔨 Craft',
+  BUILD: '🏗️ Build',
 };
 
 interface WorldStatsPanelProps {

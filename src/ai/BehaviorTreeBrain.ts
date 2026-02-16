@@ -24,6 +24,7 @@ import { totalResources } from '../entities/Inventory';
  * ├── 10. PROACTIVE REST: energy < 0.50 → REST
  * ├── 11. PROACTIVE SOCIAL: social < 0.50 AND npc within 10 tiles → SOCIALIZE
  * ├── 12. CRAFT: has enough resources for a recipe → CRAFT
+ * ├── 12.5 BUILD: construction site nearby AND has resources → BUILD
  * ├── 13. GATHER: gatherable objects nearby AND inventory not full → GATHER
  * └── 14. DEFAULT: EXPLORE
  */
@@ -113,6 +114,10 @@ export class BehaviorTreeBrain implements IBrain {
     // 12. CRAFT: has enough resources for a recipe
     const craftAction = this.findCraftOpportunity(perception);
     if (craftAction) return craftAction;
+
+    // 12.5 BUILD: construction site nearby AND has resources to contribute
+    const buildAction = this.findBuildTarget(perception);
+    if (buildAction) return buildAction;
 
     // 13. GATHER: gatherable objects nearby and inventory not full
     const gatherAction = this.findGatherTarget(perception);
@@ -255,6 +260,30 @@ export class BehaviorTreeBrain implements IBrain {
     );
 
     return { type: 'GATHER', targetX: closest.x, targetY: closest.y };
+  }
+
+  private findBuildTarget(perception: Perception): Action | null {
+    const { nearbyConstructionSites, inventory, personality } = perception;
+
+    // Check for incomplete construction sites within perception radius
+    if (nearbyConstructionSites.length > 0) {
+      // NPC has at least 1 unit of any resource → go contribute
+      if (inventory.wood > 0 || inventory.stone > 0 || inventory.berries > 0) {
+        const closest = nearbyConstructionSites.reduce((a: ObjectInfo, b: ObjectInfo) =>
+          distance(perception.cameraX, perception.cameraY, a.x, a.y) <
+          distance(perception.cameraX, perception.cameraY, b.x, b.y) ? a : b
+        );
+        return { type: 'BUILD', targetX: closest.x, targetY: closest.y };
+      }
+    }
+
+    // High craftiness NPCs prefer building over exploring when idle
+    if (personality.craftiness >= 0.6 && nearbyConstructionSites.length > 0) {
+      const closest = nearbyConstructionSites[0];
+      return { type: 'BUILD', targetX: closest.x, targetY: closest.y };
+    }
+
+    return null;
   }
 
   private findCraftOpportunity(perception: Perception): Action | null {

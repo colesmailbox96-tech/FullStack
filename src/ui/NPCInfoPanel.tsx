@@ -25,6 +25,7 @@ const ACTION_LABEL: Record<ActionType, string> = {
   IDLE: '⏳ Idle',
   GATHER: '🪓 Gathering',
   CRAFT: '🔨 Crafting',
+  BUILD: '🏗️ Building',
 };
 
 const MEMORY_LABEL: Record<string, string> = {
@@ -36,6 +37,7 @@ const MEMORY_LABEL: Record<string, string> = {
   npc_died: '💀 Witnessed death',
   crafted_item: '🔨 Crafted item',
   gathered_resource: '🪓 Gathered resource',
+  built_structure: '🏗️ Built structure',
 };
 
 interface NeedBarProps {

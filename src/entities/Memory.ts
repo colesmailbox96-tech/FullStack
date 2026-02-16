@@ -1,4 +1,4 @@
-export type MemoryType = 'found_food' | 'danger' | 'met_npc' | 'found_shelter' | 'discovered_area' | 'npc_died' | 'crafted_item' | 'gathered_resource';
+export type MemoryType = 'found_food' | 'danger' | 'met_npc' | 'found_shelter' | 'discovered_area' | 'npc_died' | 'crafted_item' | 'gathered_resource' | 'built_structure';
 
 export interface Memory {
   type: MemoryType;
@@ -8,6 +8,7 @@ export interface Memory {
   significance: number;
   relatedNpcId?: string;
   detail?: string;
+  sourceNpcId?: string;
 }
 
 export class MemorySystem {

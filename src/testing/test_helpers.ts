@@ -164,6 +164,8 @@ export function generateSyntheticLog(brain: IBrain, count: number): DecisionLog[
       nearbyTiles,
       nearbyObjects: objectInfos,
       nearbyNPCs: nearbyNPCInfos,
+      nearbyConstructionSites: [],
+      nearbyStructures: [],
       needs: { ...needs },
       personality: { bravery: 0.5, sociability: 0.5, curiosity: 0.5, industriousness: 0.5, craftiness: 0.5 },
       inventory: { wood: 0, stone: 0, berries: 0 },

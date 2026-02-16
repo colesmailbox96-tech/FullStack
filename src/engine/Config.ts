@@ -54,6 +54,18 @@ export interface WorldConfig {
   craftInventoryThreshold: number;
   /** Maximum population cap to prevent unbounded growth */
   maxPopulation: number;
+  /** Ticks between resource contributions while building (default: 15) */
+  buildTicks: number;
+  /** Health lost per tick for structures (default: 0.0001) */
+  structureHealthDecay: number;
+  /** Ticks between farm berry production (default: 300) */
+  farmProductionTicks: number;
+  /** Radius for clustering structures into settlements (default: 15) */
+  settlementDetectionRadius: number;
+  /** Minimum structures to form a settlement (default: 3) */
+  settlementMinStructures: number;
+  /** Multiplier bonus for settlement residents (default: 0.1 = 10%) */
+  settlementResidentBonus: number;
 }
 
 /**
@@ -110,6 +122,12 @@ export const GAMEPLAY_CONFIG: WorldConfig = {
   craftTicks: 40,
   craftInventoryThreshold: 5,
   maxPopulation: 50,
+  buildTicks: 15,
+  structureHealthDecay: 0.0001,
+  farmProductionTicks: 300,
+  settlementDetectionRadius: 15,
+  settlementMinStructures: 3,
+  settlementResidentBonus: 0.1,
 };
 
 /**
@@ -154,4 +172,10 @@ export const TRAINING_CONFIG: WorldConfig = {
   starvationTicks: 150,
   socialDebuffThreshold: 0.4,
   socialIsolationEnergyMultiplier: 1.3,
+  buildTicks: 10,
+  structureHealthDecay: 0.0002,
+  farmProductionTicks: 400,
+  settlementDetectionRadius: 15,
+  settlementMinStructures: 3,
+  settlementResidentBonus: 0.1,
 };

@@ -23,7 +23,12 @@ export type AchievementId =
   | 'master_forager'
   | 'explorer_100'
   | 'winter_survived'
-  | 'population_peak';
+  | 'population_peak'
+  | 'first_foundation'
+  | 'village_life'
+  | 'master_builder'
+  | 'thriving_settlement'
+  | 'architect';
 
 const ACHIEVEMENT_DEFINITIONS: Record<AchievementId, Omit<Achievement, 'unlockedAt'>> = {
   first_shelter: {
@@ -74,6 +79,36 @@ const ACHIEVEMENT_DEFINITIONS: Record<AchievementId, Omit<Achievement, 'unlocked
     description: 'Population reached 40 NPCs',
     icon: '🎉',
   },
+  first_foundation: {
+    id: 'first_foundation',
+    title: 'First Foundation',
+    description: 'First structure completed',
+    icon: '🏗️',
+  },
+  village_life: {
+    id: 'village_life',
+    title: 'Village Life',
+    description: 'First settlement formed (3+ structures)',
+    icon: '🏘️',
+  },
+  master_builder: {
+    id: 'master_builder',
+    title: 'Master Builder',
+    description: 'An NPC has building skill ≥ 0.8',
+    icon: '🔨',
+  },
+  thriving_settlement: {
+    id: 'thriving_settlement',
+    title: 'Thriving Settlement',
+    description: 'Settlement with 5+ structures and 10+ residents',
+    icon: '🌟',
+  },
+  architect: {
+    id: 'architect',
+    title: 'Architect',
+    description: 'Single NPC contributed to 5+ structures',
+    icon: '📐',
+  },
 };
 
 export class AchievementSystem {
@@ -106,6 +141,11 @@ export class AchievementSystem {
     hasCloseFriendship: boolean;
     hasMasterForager: boolean;
     maxTilesExplored: number;
+    completedStructureCount?: number;
+    settlementCount?: number;
+    hasMasterBuilder?: boolean;
+    hasThrivingSettlement?: boolean;
+    hasArchitect?: boolean;
   }): Achievement[] {
     const newlyUnlocked: Achievement[] = [];
     const unlock = (id: AchievementId) => {
@@ -167,6 +207,23 @@ export class AchievementSystem {
     }
     if (this.passedFirstWinter && params.season === 'spring') {
       unlock('winter_survived');
+    }
+
+    // Structure/settlement achievements
+    if (params.completedStructureCount && params.completedStructureCount > 0) {
+      unlock('first_foundation');
+    }
+    if (params.settlementCount && params.settlementCount > 0) {
+      unlock('village_life');
+    }
+    if (params.hasMasterBuilder) {
+      unlock('master_builder');
+    }
+    if (params.hasThrivingSettlement) {
+      unlock('thriving_settlement');
+    }
+    if (params.hasArchitect) {
+      unlock('architect');
     }
 
     return newlyUnlocked;

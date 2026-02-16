@@ -1,6 +1,6 @@
 export interface WorldEvent {
   tick: number;
-  type: 'npc_born' | 'npc_died' | 'weather_change' | 'season_change' | 'npc_found_food' | 'npc_socialized' | 'npc_crafted' | 'npc_gathered';
+  type: 'npc_born' | 'npc_died' | 'weather_change' | 'season_change' | 'npc_found_food' | 'npc_socialized' | 'npc_crafted' | 'npc_gathered' | 'structure_started' | 'structure_completed' | 'settlement_formed';
   description: string;
   x?: number;
   y?: number;

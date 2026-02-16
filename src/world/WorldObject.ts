@@ -2,6 +2,9 @@ import { TileMap, TileType } from './TileMap';
 import { WorldConfig } from '../engine/Config';
 import { Random } from '../utils/Random';
 import { distance } from '../utils/Math';
+import type { ResourceType } from '../entities/Inventory';
+
+export type StructureType = 'hut' | 'farm' | 'well' | 'storehouse' | 'watchtower' | 'meeting_hall';
 
 export enum ObjectType {
   OakTree = 'oak_tree',
@@ -11,6 +14,25 @@ export enum ObjectType {
   Rock = 'rock',
   Mushroom = 'mushroom',
   Campfire = 'campfire',
+  Hut = 'hut',
+  Farm = 'farm',
+  Well = 'well',
+  Storehouse = 'storehouse',
+  Watchtower = 'watchtower',
+  MeetingHall = 'meeting_hall',
+  ConstructionSite = 'construction_site',
+}
+
+export interface StructureData {
+  structureType: StructureType;
+  buildProgress: number;
+  requiredResources: Partial<Record<ResourceType, number>>;
+  contributedResources: Partial<Record<ResourceType, number>>;
+  contributors: string[];
+  ownerId: string;
+  settlementId: string | null;
+  health: number;
+  completedAt: number | null;
 }
 
 export interface WorldObject {
@@ -22,6 +44,7 @@ export interface WorldObject {
   resources: number;
   respawnTimer: number;
   swayOffset: number;
+  structureData?: StructureData;
 }
 
 function isGrassTile(type: TileType): boolean {
@@ -220,5 +243,27 @@ export class WorldObjectManager {
       respawnTimer: 0,
       swayOffset: 0,
     });
+  }
+
+  /** Add a structure object with structureData. Returns the object id. */
+  addStructureObject(type: ObjectType, x: number, y: number, structureData: StructureData): string {
+    const id = `obj_${this.nextId++}`;
+    this.objects.set(id, {
+      id,
+      type,
+      x,
+      y,
+      state: 'normal',
+      resources: 0,
+      respawnTimer: 0,
+      swayOffset: 0,
+      structureData,
+    });
+    return id;
+  }
+
+  /** Get a specific object by its id. */
+  getObjectById(id: string): WorldObject | null {
+    return this.objects.get(id) ?? null;
   }
 }

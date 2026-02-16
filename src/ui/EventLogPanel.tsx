@@ -11,6 +11,9 @@ const EVENT_ICON: Record<WorldEvent['type'], string> = {
   npc_socialized: '💬',
   npc_crafted: '🔨',
   npc_gathered: '🪓',
+  structure_started: '🏗️',
+  structure_completed: '🏠',
+  settlement_formed: '🏘️',
 };
 
 const TICKS_PER_DAY = 2400;
