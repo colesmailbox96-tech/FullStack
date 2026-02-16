@@ -13,7 +13,7 @@ export interface CraftingRecipe {
 }
 
 /** Tool types that NPCs can craft and equip for efficiency bonuses */
-export type ToolType = 'wooden_axe' | 'stone_pickaxe' | 'fishing_rod';
+export type ToolType = 'wooden_axe' | 'stone_pickaxe' | 'fishing_rod' | 'stone_shovel';
 
 export interface ToolInfo {
   type: ToolType;
@@ -56,6 +56,15 @@ export const TOOL_DEFINITIONS: Record<ToolType, Omit<ToolInfo, 'durability'>> = 
     targetResource: 'food',
     maxDurability: 40,
   },
+  stone_shovel: {
+    type: 'stone_shovel',
+    name: 'Stone Shovel',
+    description: 'Digs and forages berries faster',
+    icon: '🪏',
+    gatherSpeedModifier: 1.4,
+    targetResource: 'berries',
+    maxDurability: 45,
+  },
 };
 
 export function createTool(type: ToolType): ToolInfo {
@@ -91,6 +100,12 @@ export const RECIPES: CraftingRecipe[] = [
     toolResult: 'stone_pickaxe',
     ingredients: { wood: 2, stone: 3 },
     craftTicks: 35,
+  },
+  {
+    name: 'Stone Shovel',
+    toolResult: 'stone_shovel',
+    ingredients: { wood: 2, stone: 2 },
+    craftTicks: 30,
   },
   {
     name: 'Fishing Rod',

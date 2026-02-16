@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { getAvailableRecipes, craftItem, RECIPES, isToolRecipe, createTool } from './Crafting';
+import { getAvailableRecipes, craftItem, RECIPES, isToolRecipe, createTool, useTool, isToolBroken } from './Crafting';
 import { createEmptyInventory, addResource } from '../entities/Inventory';
 
 describe('RECIPES', () => {
   it('contains at least one recipe', () => {
     expect(RECIPES.length).toBeGreaterThan(0);
+  });
+
+  it('every resource type is used in at least one recipe', () => {
+    const allIngredients = RECIPES.flatMap(r => Object.keys(r.ingredients));
+    expect(allIngredients).toContain('wood');
+    expect(allIngredients).toContain('stone');
+    expect(allIngredients).toContain('berries');
   });
 
   it('campfire recipe requires wood and stone', () => {
@@ -16,8 +23,8 @@ describe('RECIPES', () => {
 
   it('tool recipes have toolResult set', () => {
     const toolRecipes = RECIPES.filter(r => r.toolResult !== undefined);
-    expect(toolRecipes.length).toBe(3);
-    expect(toolRecipes.map(r => r.name).sort()).toEqual(['Fishing Rod', 'Stone Pickaxe', 'Wooden Axe']);
+    expect(toolRecipes.length).toBe(4);
+    expect(toolRecipes.map(r => r.name).sort()).toEqual(['Fishing Rod', 'Stone Pickaxe', 'Stone Shovel', 'Wooden Axe']);
   });
 
   it('campfire recipe is not a tool recipe', () => {
@@ -37,14 +44,15 @@ describe('getAvailableRecipes', () => {
     addResource(inv, 'wood', 3);
     addResource(inv, 'stone', 2);
     const recipes = getAvailableRecipes(inv);
-    expect(recipes.length).toBe(1);
-    expect(recipes[0].name).toBe('Campfire');
+    const recipeNames = recipes.map(r => r.name);
+    expect(recipeNames).toContain('Campfire');
+    expect(recipeNames).toContain('Stone Shovel');
   });
 
   it('returns empty when not enough resources', () => {
     const inv = createEmptyInventory();
-    addResource(inv, 'wood', 2);
-    addResource(inv, 'stone', 2);
+    addResource(inv, 'wood', 1);
+    addResource(inv, 'stone', 1);
     expect(getAvailableRecipes(inv)).toEqual([]);
   });
 });
@@ -96,5 +104,45 @@ describe('createTool', () => {
     const tool = createTool('fishing_rod');
     expect(tool.type).toBe('fishing_rod');
     expect(tool.targetResource).toBe('food');
+  });
+
+  it('creates a stone shovel with correct target', () => {
+    const tool = createTool('stone_shovel');
+    expect(tool.type).toBe('stone_shovel');
+    expect(tool.name).toBe('Stone Shovel');
+    expect(tool.targetResource).toBe('berries');
+    expect(tool.durability).toBe(45);
+    expect(tool.gatherSpeedModifier).toBe(1.4);
+  });
+
+  it('creates a stone pickaxe with correct target', () => {
+    const tool = createTool('stone_pickaxe');
+    expect(tool.type).toBe('stone_pickaxe');
+    expect(tool.name).toBe('Stone Pickaxe');
+    expect(tool.targetResource).toBe('stone');
+    expect(tool.durability).toBe(60);
+  });
+});
+
+describe('tool durability', () => {
+  it('useTool decrements durability', () => {
+    const tool = createTool('wooden_axe');
+    const initial = tool.durability;
+    useTool(tool);
+    expect(tool.durability).toBe(initial - 1);
+  });
+
+  it('isToolBroken returns true when durability reaches 0', () => {
+    const tool = createTool('wooden_axe');
+    tool.durability = 1;
+    expect(isToolBroken(tool)).toBe(false);
+    useTool(tool);
+    expect(isToolBroken(tool)).toBe(true);
+  });
+
+  it('useTool returns false when tool is already broken', () => {
+    const tool = createTool('stone_pickaxe');
+    tool.durability = 0;
+    expect(useTool(tool)).toBe(false);
   });
 });

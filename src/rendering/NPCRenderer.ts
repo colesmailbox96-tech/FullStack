@@ -324,15 +324,39 @@ export class NPCRenderer {
         break;
       }
       case 'FORAGE': {
-        // Small hand/pick animation
-        const handFrame = Math.floor(tick / 10) % 2;
-        ctx.fillStyle = rgba(200, 180, 100);
-        if (handFrame === 0) {
-          ctx.fillRect(centerX - 1, indicatorY + 1, 2, 2);
+        // Berry picking / digging animation
+        if (npc.equippedTool?.type === 'stone_shovel') {
+          // Shovel digging animation
+          const digFrame = Math.floor(tick / 8) % 3;
+          // Shovel handle
+          ctx.fillStyle = rgba(140, 100, 50);
+          ctx.fillRect(centerX - 1, indicatorY - 1, 1, 4);
+          // Shovel blade
+          ctx.fillStyle = rgba(160, 160, 170);
+          if (digFrame === 0) {
+            ctx.fillRect(centerX - 3, indicatorY + 2, 3, 2);
+          } else if (digFrame === 1) {
+            ctx.fillRect(centerX - 3, indicatorY + 1, 3, 2);
+          } else {
+            ctx.fillRect(centerX - 3, indicatorY + 3, 3, 2);
+          }
+          // Dirt particles on dig
+          if (digFrame === 2) {
+            ctx.fillStyle = rgba(120, 90, 50, 0.6);
+            ctx.fillRect(centerX + 1, indicatorY + 1, 1, 1);
+            ctx.fillRect(centerX + 2, indicatorY, 1, 1);
+          }
         } else {
-          ctx.fillRect(centerX - 1, indicatorY, 2, 2);
+          // Hand picking animation (default)
+          const handFrame = Math.floor(tick / 10) % 2;
+          ctx.fillStyle = rgba(200, 180, 100);
+          if (handFrame === 0) {
+            ctx.fillRect(centerX - 1, indicatorY + 1, 2, 2);
+          } else {
+            ctx.fillRect(centerX - 1, indicatorY, 2, 2);
+          }
+          ctx.fillRect(centerX, indicatorY + 2, 1, 2);
         }
-        ctx.fillRect(centerX, indicatorY + 2, 1, 2);
         break;
       }
       case 'EXPLORE': {
@@ -359,17 +383,51 @@ export class NPCRenderer {
         break;
       }
       case 'GATHER': {
-        // Axe swing animation
-        const swingFrame = Math.floor(tick / 8) % 2;
-        ctx.fillStyle = rgba(160, 120, 60);
-        // Handle
-        ctx.fillRect(centerX - 1, indicatorY - 1, 1, 4);
-        // Blade
-        ctx.fillStyle = rgba(180, 180, 190);
-        if (swingFrame === 0) {
-          ctx.fillRect(centerX - 3, indicatorY - 2, 2, 2);
+        if (npc.equippedTool?.type === 'stone_pickaxe') {
+          // Pickaxe mining animation
+          const mineFrame = Math.floor(tick / 7) % 3;
+          // Handle (diagonal)
+          ctx.fillStyle = rgba(140, 100, 50);
+          ctx.fillRect(centerX - 1, indicatorY, 1, 4);
+          // Pickaxe head
+          ctx.fillStyle = rgba(140, 140, 150);
+          if (mineFrame === 0) {
+            ctx.fillRect(centerX - 3, indicatorY - 1, 3, 1);
+            ctx.fillRect(centerX - 3, indicatorY - 2, 1, 1);
+          } else if (mineFrame === 1) {
+            ctx.fillRect(centerX - 3, indicatorY, 3, 1);
+            ctx.fillRect(centerX - 3, indicatorY - 1, 1, 1);
+          } else {
+            ctx.fillRect(centerX - 3, indicatorY + 1, 3, 1);
+            ctx.fillRect(centerX - 3, indicatorY, 1, 1);
+          }
+          // Spark particles on strike
+          if (mineFrame === 2) {
+            ctx.fillStyle = rgba(255, 220, 100, 0.8);
+            ctx.fillRect(centerX + 1, indicatorY - 1, 1, 1);
+            ctx.fillRect(centerX + 2, indicatorY + 1, 1, 1);
+          }
         } else {
-          ctx.fillRect(centerX - 3, indicatorY - 1, 2, 2);
+          // Axe chopping animation (default / wooden_axe)
+          const swingFrame = Math.floor(tick / 6) % 3;
+          ctx.fillStyle = rgba(160, 120, 60);
+          // Handle
+          ctx.fillRect(centerX - 1, indicatorY - 1, 1, 4);
+          // Axe blade
+          ctx.fillStyle = rgba(180, 180, 190);
+          if (swingFrame === 0) {
+            ctx.fillRect(centerX - 3, indicatorY - 2, 2, 2);
+          } else if (swingFrame === 1) {
+            ctx.fillRect(centerX - 3, indicatorY - 1, 2, 2);
+          } else {
+            ctx.fillRect(centerX - 3, indicatorY, 2, 2);
+          }
+          // Wood chip particles on chop
+          if (swingFrame === 2) {
+            ctx.fillStyle = rgba(180, 140, 80, 0.7);
+            ctx.fillRect(centerX + 1, indicatorY - 2, 1, 1);
+            ctx.fillRect(centerX + 2, indicatorY, 1, 1);
+          }
         }
         break;
       }

@@ -397,7 +397,13 @@ export class NPC {
 
     switch (this.currentAction) {
       case 'FORAGE': {
-        if (this.actionTimer >= FORAGE_TICKS) {
+        // Apply shovel speed bonus for berry foraging
+        let effectiveForageTicks = FORAGE_TICKS;
+        if (this.equippedTool && !isToolBroken(this.equippedTool) &&
+            this.equippedTool.targetResource === 'berries') {
+          effectiveForageTicks = Math.floor(FORAGE_TICKS / this.equippedTool.gatherSpeedModifier);
+        }
+        if (this.actionTimer >= effectiveForageTicks) {
           // Try to harvest a nearby object
           const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
           if (obj && obj.type === ObjectType.BerryBush) {
@@ -406,6 +412,11 @@ export class NPC {
               const bonus = getSkillBonus(this.skills, 'foraging');
               this.needs.hunger = clamp(this.needs.hunger + 0.3 * bonus, 0, 1);
               grantSkillXP(this.skills, 'foraging');
+              // Use shovel if applicable
+              if (this.equippedTool && this.equippedTool.targetResource === 'berries') {
+                useTool(this.equippedTool);
+                if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+              }
               this.memory.addMemory({
                 type: 'found_food',
                 tick: this.age,
