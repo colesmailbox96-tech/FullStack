@@ -8,6 +8,9 @@ import { applyTraitModifier } from '../entities/Personality';
 import { getAvailableRecipes } from '../engine/Crafting';
 import { totalResources } from '../entities/Inventory';
 
+/** Maximum distance (in tiles) from a campfire at which an NPC can rest. */
+export const CAMPFIRE_REST_RANGE = 3;
+
 /**
  * Behavior tree with tiered priority structure (Fix 6):
  *
@@ -201,12 +204,12 @@ export class BehaviorTreeBrain implements IBrain {
   }
 
   private makeRest(perception: Perception): Action {
-    // NPCs can only rest near a campfire (within 3 tiles)
+    // NPCs can only rest near a campfire
     const nearbyCampfires = perception.nearbyObjects.filter(
       (obj: ObjectInfo) => obj.type === ObjectType.Campfire
     );
     const campfireInRange = nearbyCampfires.find(
-      (obj: ObjectInfo) => distance(perception.cameraX, perception.cameraY, obj.x, obj.y) <= 3
+      (obj: ObjectInfo) => distance(perception.cameraX, perception.cameraY, obj.x, obj.y) <= CAMPFIRE_REST_RANGE
     );
     if (campfireInRange) {
       return { type: 'REST', targetX: Math.round(perception.cameraX), targetY: Math.round(perception.cameraY) };
