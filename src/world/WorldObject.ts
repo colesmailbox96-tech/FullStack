@@ -102,28 +102,28 @@ export class WorldObjectManager {
 
         // Oak trees on grass with moisture > 0.5
         if (isGrassTile(type) && moisture > 0.5 && rng.next() < config.treeDensity) {
-          this.addObject(ObjectType.OakTree, x, y, 0, rng.next() * Math.PI * 2);
+          this.addObject(ObjectType.OakTree, x, y, 3, rng.next() * Math.PI * 2);
           occupied.add(`${x},${y}`);
           continue;
         }
 
         // Pine trees on grass with moisture > 0.6 and elevation > 0.55
         if (isGrassTile(type) && moisture > 0.6 && elevation > 0.55 && rng.next() < 0.05) {
-          this.addObject(ObjectType.PineTree, x, y, 0, rng.next() * Math.PI * 2);
+          this.addObject(ObjectType.PineTree, x, y, 3, rng.next() * Math.PI * 2);
           occupied.add(`${x},${y}`);
           continue;
         }
 
         // Birch trees on grass with moisture 0.4-0.6
         if (isGrassTile(type) && moisture >= 0.4 && moisture <= 0.6 && rng.next() < 0.03) {
-          this.addObject(ObjectType.BirchTree, x, y, 0, rng.next() * Math.PI * 2);
+          this.addObject(ObjectType.BirchTree, x, y, 3, rng.next() * Math.PI * 2);
           occupied.add(`${x},${y}`);
           continue;
         }
 
         // Rocks on stone/dirt
         if ((type === TileType.Stone || type === TileType.DryDirt) && rng.next() < 0.05) {
-          this.addObject(ObjectType.Rock, x, y, 0, 0);
+          this.addObject(ObjectType.Rock, x, y, 3, 0);
           occupied.add(`${x},${y}`);
           continue;
         }
@@ -209,13 +209,31 @@ export class WorldObjectManager {
 
       obj.respawnTimer--;
       if (obj.respawnTimer <= 0) {
-        const foodAmount = season === 'winter'
-          ? Math.floor(config.foodPerBush * (1 - config.winterFoodReduction))
-          : config.foodPerBush;
-        obj.resources = Math.max(1, foodAmount);
+        const baseAmount = this.getBaseResources(obj.type, config);
+        const amount = season === 'winter'
+          ? Math.floor(baseAmount * (1 - config.winterFoodReduction))
+          : baseAmount;
+        obj.resources = Math.max(1, amount);
         obj.state = 'ripe';
         obj.respawnTimer = 0;
       }
+    }
+  }
+
+  /** Return the default resource count for a given object type. */
+  private getBaseResources(type: ObjectType, config: WorldConfig): number {
+    switch (type) {
+      case ObjectType.BerryBush:
+        return config.foodPerBush;
+      case ObjectType.OakTree:
+      case ObjectType.PineTree:
+      case ObjectType.BirchTree:
+      case ObjectType.Rock:
+        return 3;
+      case ObjectType.Mushroom:
+        return 1;
+      default:
+        return config.foodPerBush;
     }
   }
 

@@ -41,6 +41,7 @@ interface SimulationStore {
   cameraY: number;
   cameraZoom: number;
   selectedNpcId: string | null;
+  selectedObjectId: string | null;
   speed: number;
   volume: number;
   showDebug: boolean;
@@ -55,6 +56,7 @@ interface SimulationStore {
   setSpeed: (speed: number) => void;
   setCamera: (x: number, y: number, zoom: number) => void;
   selectNPC: (id: string | null) => void;
+  selectObject: (id: string | null) => void;
   setVolume: (volume: number) => void;
   toggleDebug: () => void;
   toggleEventLog: () => void;
@@ -70,6 +72,7 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
   cameraY: 0,
   cameraZoom: 1,
   selectedNpcId: null,
+  selectedObjectId: null,
   speed: 1,
   volume: 0.5,
   showDebug: false,
@@ -308,7 +311,15 @@ export const useSimulation = create<SimulationStore>((set, get) => ({
     const { state } = get();
     set({
       selectedNpcId: id,
+      selectedObjectId: null,
       state: state ? { ...state, selectedNpcId: id } : null,
+    });
+  },
+
+  selectObject: (id: string | null) => {
+    set({
+      selectedObjectId: id,
+      selectedNpcId: null,
     });
   },
 

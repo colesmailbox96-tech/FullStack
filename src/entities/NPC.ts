@@ -13,7 +13,7 @@ import { RelationshipSystem } from './Relationship';
 import { Inventory, createEmptyInventory, addResource, totalResources } from './Inventory';
 import { Skills, createDefaultSkills, grantSkillXP, getSkillBonus } from './Skills';
 import { evaluateTrade, executeTrade } from './Trading';
-import { getAvailableRecipes, craftItem, isToolRecipe, createTool, type ToolInfo } from '../engine/Crafting';
+import { getAvailableRecipes, craftItem, isToolRecipe, createTool, useTool, isToolBroken, type ToolInfo } from '../engine/Crafting';
 import type { ActionType } from '../ai/Action';
 import { BehaviorTreeBrain } from '../ai/BehaviorTreeBrain';
 import { buildPerception } from '../ai/Perception';
@@ -39,6 +39,7 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 
 const MOVE_TICKS = 8;
 const FORAGE_TICKS = 30;
+const FISH_TICKS = 40;
 const MOVING_ENERGY_MULTIPLIER = 1.5;
 const IDLE_ENERGY_DRAIN_BASE = 0.003;
 /** Maximum top memories to consider for knowledge sharing */
@@ -396,7 +397,13 @@ export class NPC {
 
     switch (this.currentAction) {
       case 'FORAGE': {
-        if (this.actionTimer >= FORAGE_TICKS) {
+        // Apply shovel speed bonus for berry foraging
+        let effectiveForageTicks = FORAGE_TICKS;
+        if (this.equippedTool && !isToolBroken(this.equippedTool) &&
+            this.equippedTool.targetResource === 'berries') {
+          effectiveForageTicks = Math.floor(FORAGE_TICKS / this.equippedTool.gatherSpeedModifier);
+        }
+        if (this.actionTimer >= effectiveForageTicks) {
           // Try to harvest a nearby object
           const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
           if (obj && obj.type === ObjectType.BerryBush) {
@@ -405,6 +412,11 @@ export class NPC {
               const bonus = getSkillBonus(this.skills, 'foraging');
               this.needs.hunger = clamp(this.needs.hunger + 0.3 * bonus, 0, 1);
               grantSkillXP(this.skills, 'foraging');
+              // Use shovel if applicable
+              if (this.equippedTool && this.equippedTool.targetResource === 'berries') {
+                useTool(this.equippedTool);
+                if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+              }
               this.memory.addMemory({
                 type: 'found_food',
                 tick: this.age,
@@ -496,32 +508,59 @@ export class NPC {
         break;
       }
       case 'GATHER': {
-        if (this.actionTimer >= config.gatherTicks) {
+        // Apply tool speed bonus: reduce effective gather time
+        let effectiveGatherTicks = config.gatherTicks;
+        if (this.equippedTool && !isToolBroken(this.equippedTool)) {
+          const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
+          const isWoodTarget = obj && (obj.type === ObjectType.OakTree || obj.type === ObjectType.PineTree || obj.type === ObjectType.BirchTree);
+          const isStoneTarget = obj && obj.type === ObjectType.Rock;
+          if ((isWoodTarget && this.equippedTool.targetResource === 'wood') ||
+              (isStoneTarget && this.equippedTool.targetResource === 'stone')) {
+            effectiveGatherTicks = Math.floor(config.gatherTicks / this.equippedTool.gatherSpeedModifier);
+          }
+        }
+        if (this.actionTimer >= effectiveGatherTicks) {
           const obj = objects.getObjectAt(Math.floor(this.targetX), Math.floor(this.targetY));
           if (obj) {
             if ((obj.type === ObjectType.OakTree || obj.type === ObjectType.PineTree || obj.type === ObjectType.BirchTree)
                 && obj.state !== 'depleted') {
-              addResource(this.inventory, 'wood', 1);
-              grantSkillXP(this.skills, 'building');
-              this.memory.addMemory({
-                type: 'gathered_resource',
-                tick: this.age,
-                x: obj.x,
-                y: obj.y,
-                significance: 0.4,
-                detail: 'wood',
-              });
+              const harvested = objects.harvestObject(obj.id, config.foodRespawnTicks);
+              if (harvested) {
+                addResource(this.inventory, 'wood', 1);
+                grantSkillXP(this.skills, 'building');
+                // Use tool if applicable
+                if (this.equippedTool && this.equippedTool.targetResource === 'wood') {
+                  useTool(this.equippedTool);
+                  if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+                }
+                this.memory.addMemory({
+                  type: 'gathered_resource',
+                  tick: this.age,
+                  x: obj.x,
+                  y: obj.y,
+                  significance: 0.4,
+                  detail: 'wood',
+                });
+              }
             } else if (obj.type === ObjectType.Rock && obj.state !== 'depleted') {
-              addResource(this.inventory, 'stone', 1);
-              grantSkillXP(this.skills, 'building');
-              this.memory.addMemory({
-                type: 'gathered_resource',
-                tick: this.age,
-                x: obj.x,
-                y: obj.y,
-                significance: 0.4,
-                detail: 'stone',
-              });
+              const harvested = objects.harvestObject(obj.id, config.foodRespawnTicks);
+              if (harvested) {
+                addResource(this.inventory, 'stone', 1);
+                grantSkillXP(this.skills, 'building');
+                // Use tool if applicable
+                if (this.equippedTool && this.equippedTool.targetResource === 'stone') {
+                  useTool(this.equippedTool);
+                  if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+                }
+                this.memory.addMemory({
+                  type: 'gathered_resource',
+                  tick: this.age,
+                  x: obj.x,
+                  y: obj.y,
+                  significance: 0.4,
+                  detail: 'stone',
+                });
+              }
             }
           }
           this.actionTimer = 0;
@@ -597,6 +636,29 @@ export class NPC {
             }
           }
           this.actionTimer = 0;
+        }
+        break;
+      }
+      case 'FISH': {
+        if (this.actionTimer >= FISH_TICKS) {
+          // Fish from water — requires fishing rod
+          if (this.equippedTool && this.equippedTool.type === 'fishing_rod' && !isToolBroken(this.equippedTool)) {
+            const bonus = getSkillBonus(this.skills, 'foraging');
+            this.needs.hunger = clamp(this.needs.hunger + 0.35 * bonus, 0, 1);
+            grantSkillXP(this.skills, 'foraging');
+            useTool(this.equippedTool);
+            if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+            this.memory.addMemory({
+              type: 'found_food',
+              tick: this.age,
+              x: Math.floor(this.x),
+              y: Math.floor(this.y),
+              significance: 0.7,
+              detail: 'fish',
+            });
+          }
+          this.actionTimer = 0;
+          this.currentAction = 'IDLE';
         }
         break;
       }

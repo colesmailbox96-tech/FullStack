@@ -54,6 +54,10 @@ export interface Perception {
   cameraY: number;
   cameraZoom: number;
   craftInventoryThreshold: number;
+  /** Whether the NPC has a fishing rod equipped */
+  hasFishingRod: boolean;
+  /** Walkable tiles adjacent to water, suitable for fishing */
+  nearbyFishingSpots: TileInfo[];
 }
 
 const PERCEPTION_RADIUS = 8;
@@ -116,6 +120,18 @@ export function buildPerception(
 
   const relevantMemories = npc.memory.getTopMemories(5);
 
+  // Find walkable tiles adjacent to water (fishing spots)
+  const nearbyFishingSpots: TileInfo[] = nearbyTiles.filter(t => {
+    if (!t.walkable) return false;
+    // Check if any cardinal neighbor is water
+    const hasWater =
+      tileMap.isWater(t.x - 1, t.y) ||
+      tileMap.isWater(t.x + 1, t.y) ||
+      tileMap.isWater(t.x, t.y - 1) ||
+      tileMap.isWater(t.x, t.y + 1);
+    return hasWater;
+  });
+
   return {
     nearbyTiles,
     nearbyObjects,
@@ -134,5 +150,7 @@ export function buildPerception(
     cameraY,
     cameraZoom,
     craftInventoryThreshold,
+    hasFishingRod: (npc.equippedTool?.type === 'fishing_rod') || false,
+    nearbyFishingSpots,
   };
 }

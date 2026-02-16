@@ -1,7 +1,7 @@
 import { Tensor } from './Tensor';
 import { LinearLayer } from './LinearLayer';
 
-export const NUM_ACTIONS = 6;
+export const NUM_ACTIONS = 10;
 
 export interface Experience {
   perceptionEmbedding: number[];

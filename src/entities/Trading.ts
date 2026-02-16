@@ -68,6 +68,18 @@ export function evaluateTrade(
     return { occurred: true, giverResource: 'stone', receiverResource: null, amount: 1 };
   }
 
+  // Bidirectional exchange: giver trades surplus wood for berries from receiver
+  if (giverInventory.wood > SURPLUS_THRESHOLD && giverNeeds.hunger < NEED_DEFICIT_THRESHOLD &&
+      receiverInventory.berries > SURPLUS_THRESHOLD) {
+    return { occurred: true, giverResource: 'wood', receiverResource: 'berries', amount: 1 };
+  }
+
+  // Bidirectional exchange: giver trades surplus stone for berries from receiver
+  if (giverInventory.stone > SURPLUS_THRESHOLD && giverNeeds.hunger < NEED_DEFICIT_THRESHOLD &&
+      receiverInventory.berries > SURPLUS_THRESHOLD) {
+    return { occurred: true, giverResource: 'stone', receiverResource: 'berries', amount: 1 };
+  }
+
   return noTrade;
 }
 
@@ -86,5 +98,14 @@ export function executeTrade(
   if (!removed) return false;
 
   addResource(receiverInventory, trade.giverResource, trade.amount);
+
+  // Handle bidirectional exchange: receiver gives back their resource
+  if (trade.receiverResource) {
+    const receiverRemoved = removeResource(receiverInventory, trade.receiverResource, trade.amount);
+    if (receiverRemoved) {
+      addResource(giverInventory, trade.receiverResource, trade.amount);
+    }
+  }
+
   return true;
 }

@@ -109,6 +109,11 @@ export class LightingRenderer {
       this.renderCampfireLights(ctx, objects, camera, tick);
     }
 
+    // Campfire warmth aura (subtle warm glow visible during daytime too)
+    if (timeSystem.timeOfDay >= 0.25 && timeSystem.timeOfDay <= 0.70) {
+      this.renderCampfireWarmth(ctx, objects, camera, tick);
+    }
+
     // Tree shadows during daytime
     if (timeSystem.timeOfDay >= 0.2 && timeSystem.timeOfDay <= 0.75) {
       this.renderShadows(ctx, objects, camera, timeSystem);
@@ -191,6 +196,42 @@ export class LightingRenderer {
         6, 3, 0, 0, Math.PI * 2,
       );
       ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  private renderCampfireWarmth(
+    ctx: CanvasRenderingContext2D,
+    objects: WorldObject[],
+    camera: Camera,
+    tick: number,
+  ): void {
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+
+    for (const obj of objects) {
+      if (obj.type !== ObjectType.Campfire) continue;
+
+      const screenPos = camera.worldToScreen(obj.x + 0.5, obj.y + 0.5);
+      const shimmer = Math.sin(tick * 0.08) * 0.02;
+      const radius = 25 * camera.zoom;
+
+      const gradient = ctx.createRadialGradient(
+        screenPos.x, screenPos.y, 0,
+        screenPos.x, screenPos.y, radius,
+      );
+      gradient.addColorStop(0, rgba(255, 200, 100, 0.08 + shimmer));
+      gradient.addColorStop(0.6, rgba(255, 160, 60, 0.04 + shimmer * 0.5));
+      gradient.addColorStop(1, rgba(255, 120, 30, 0));
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(
+        screenPos.x - radius,
+        screenPos.y - radius,
+        radius * 2,
+        radius * 2,
+      );
     }
 
     ctx.restore();

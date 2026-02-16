@@ -2,7 +2,7 @@ import { TransformerBrain } from './TransformerBrain';
 import type { ActionType } from '../Action';
 
 const ACTION_NAMES: ActionType[] = [
-  'FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE'
+  'FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE', 'GATHER', 'CRAFT', 'BUILD', 'FISH'
 ];
 
 export class PersonalityTracker {

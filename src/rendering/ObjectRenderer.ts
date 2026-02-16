@@ -7,6 +7,18 @@ import type { Camera } from './Camera';
 import { SpriteSheet } from './SpriteSheet';
 import { TILE_SIZE } from './constants';
 
+/** Returns true for resource types that should disappear when depleted */
+function isGatherableResource(type: ObjectType): boolean {
+  return (
+    type === ObjectType.OakTree ||
+    type === ObjectType.PineTree ||
+    type === ObjectType.BirchTree ||
+    type === ObjectType.Rock ||
+    type === ObjectType.BerryBush ||
+    type === ObjectType.Mushroom
+  );
+}
+
 function oakCanopyColor(season: Season): [number, number, number] {
   switch (season) {
     case 'spring': return [60, 150, 30];
@@ -397,7 +409,9 @@ export class ObjectRenderer {
         obj.x >= bounds.minX - 1 &&
         obj.x <= bounds.maxX + 1 &&
         obj.y >= bounds.minY - 1 &&
-        obj.y <= bounds.maxY + 1,
+        obj.y <= bounds.maxY + 1 &&
+        // Hide depleted gatherable resources from the map
+        !(obj.state === 'depleted' && isGatherableResource(obj.type)),
     );
     sorted.sort((a, b) => a.y - b.y);
 

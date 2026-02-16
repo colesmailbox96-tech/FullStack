@@ -6,7 +6,7 @@ import { NeuralNetLoss } from './NeuralNetLoss';
 import { AdamOptimizer } from './AdamOptimizer';
 import { EpisodicMemoryBuffer } from './EpisodicMemory';
 
-const ACTION_TYPES = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE'];
+const ACTION_TYPES = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE', 'GATHER', 'CRAFT', 'BUILD', 'FISH'];
 
 export interface TrainingConfig {
   epochs: number;

@@ -138,5 +138,44 @@ describe('WorldObjectManager', () => {
       expect(bush.resources).toBeGreaterThanOrEqual(1);
       expect(bush.resources).toBeLessThanOrEqual(GAMEPLAY_CONFIG.foodPerBush);
     });
+
+    it('respawns trees with correct resource amount (not food amount)', () => {
+      const { mgr } = createWithObjects();
+      const tree = mgr.getObjects().find(o =>
+        o.type === ObjectType.OakTree || o.type === ObjectType.PineTree || o.type === ObjectType.BirchTree
+      );
+      if (!tree) return;
+
+      // Deplete the tree
+      while (tree.resources > 0) {
+        mgr.harvestObject(tree.id, 5);
+      }
+      expect(tree.state).toBe('depleted');
+
+      // Respawn it
+      for (let i = 0; i < 6; i++) {
+        mgr.update(i, GAMEPLAY_CONFIG, 'spring');
+      }
+      expect(tree.state).toBe('ripe');
+      // Trees should respawn with 3 resources, not config.foodPerBush (4)
+      expect(tree.resources).toBe(3);
+    });
+
+    it('respawns rocks with correct resource amount', () => {
+      const { mgr } = createWithObjects();
+      const rock = mgr.getObjects().find(o => o.type === ObjectType.Rock);
+      if (!rock) return;
+
+      while (rock.resources > 0) {
+        mgr.harvestObject(rock.id, 5);
+      }
+      expect(rock.state).toBe('depleted');
+
+      for (let i = 0; i < 6; i++) {
+        mgr.update(i, GAMEPLAY_CONFIG, 'spring');
+      }
+      expect(rock.state).toBe('ripe');
+      expect(rock.resources).toBe(3);
+    });
   });
 });

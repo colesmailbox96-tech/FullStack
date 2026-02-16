@@ -23,7 +23,7 @@ import { ObjectType } from '../../world/WorldObject';
 import { TileType } from '../../world/TileMap';
 
 // ---- Helper ----
-const VALID_ACTIONS: ActionType[] = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE', 'GATHER', 'CRAFT'];
+const VALID_ACTIONS: ActionType[] = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE', 'GATHER', 'CRAFT', 'FISH'];
 
 function buildTestPerception(overrides: Partial<Perception> = {}): Perception {
   return {
@@ -50,6 +50,8 @@ function buildTestPerception(overrides: Partial<Perception> = {}): Perception {
     cameraY: 64,
     cameraZoom: 1,
     craftInventoryThreshold: 5,
+    hasFishingRod: false,
+    nearbyFishingSpots: [],
     ...overrides,
   };
 }

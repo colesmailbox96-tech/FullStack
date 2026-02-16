@@ -55,6 +55,8 @@ function buildTestPerception(overrides?: Partial<Perception>): Perception {
     cameraY: 64,
     cameraZoom: 1,
     craftInventoryThreshold: 5,
+    hasFishingRod: false,
+    nearbyFishingSpots: [],
     ...overrides,
   };
 }

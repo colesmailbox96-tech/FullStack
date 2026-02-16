@@ -5,6 +5,7 @@ import { InputManager } from '../input/InputManager';
 import { AmbientAudio } from '../audio/AmbientAudio';
 import { TILE_SIZE } from '../rendering/constants';
 import type { NPC } from '../entities/NPC';
+import type { WorldObject } from '../world/WorldObject';
 
 const MAX_TICKS_PER_FRAME = 100;
 
@@ -19,6 +20,22 @@ function findNearestNPC(npcs: NPC[], worldX: number, worldY: number): NPC | null
     if (dist < 1 && dist < bestDist) {
       bestDist = dist;
       best = npc;
+    }
+  }
+  return best;
+}
+
+function findNearestObject(objects: WorldObject[], worldX: number, worldY: number): WorldObject | null {
+  let best: WorldObject | null = null;
+  let bestDist = Infinity;
+  for (const obj of objects) {
+    if (obj.state === 'depleted') continue;
+    const dx = obj.x + 0.5 - worldX;
+    const dy = obj.y + 0.5 - worldY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1.2 && dist < bestDist) {
+      bestDist = dist;
+      best = obj;
     }
   }
   return best;
@@ -126,12 +143,23 @@ const GameCanvas: React.FC = () => {
         camera.setZoom(camera.targetZoom * (1 + zoomDelta * 0.15));
       }
 
-      // Handle click (NPC selection)
+      // Handle click (NPC or object selection)
       const click = input.consumeClick();
       if (click && state) {
         const worldCoords = camera.screenToWorld(click.x, click.y);
         const nearest = findNearestNPC(state.npcs, worldCoords.x, worldCoords.y);
-        store.selectNPC(nearest ? nearest.id : null);
+        if (nearest) {
+          store.selectNPC(nearest.id);
+        } else {
+          // Check for world objects
+          const nearestObj = findNearestObject(state.objects.getObjects(), worldCoords.x, worldCoords.y);
+          if (nearestObj) {
+            store.selectObject(nearestObj.id);
+          } else {
+            store.selectNPC(null);
+            store.selectObject(null);
+          }
+        }
       }
 
       // Tick simulation based on speed
