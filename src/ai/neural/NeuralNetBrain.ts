@@ -10,7 +10,7 @@ import { ReplayBuffer } from './ReplayBuffer';
 import { OnlineTrainer } from './OnlineTrainer';
 import { PersonalityTracker } from './PersonalityTracker';
 
-const ACTION_TYPES: ActionType[] = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE'];
+const ACTION_TYPES: ActionType[] = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE', 'GATHER', 'CRAFT', 'BUILD', 'FISH'];
 
 const WEATHER_CODES: Record<string, number> = {
   clear: 0, cloudy: 0.2, rain: 0.4, storm: 0.6, snow: 0.8, fog: 1.0,

@@ -11,6 +11,8 @@ export const ACTION_LABELS: Record<string, number> = {
   IDLE: 5,
   GATHER: 6,
   CRAFT: 7,
+  BUILD: 8,
+  FISH: 9,
 };
 
 /** The 5 core action types used for ML training analysis. */

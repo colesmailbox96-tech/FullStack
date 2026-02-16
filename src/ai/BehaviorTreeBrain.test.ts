@@ -29,6 +29,8 @@ function makePerception(overrides: Partial<Perception> = {}): Perception {
     cameraY: 5,
     cameraZoom: 1,
     craftInventoryThreshold: 5,
+    hasFishingRod: false,
+    nearbyFishingSpots: [],
     ...overrides,
   };
 }
@@ -155,7 +157,7 @@ describe('BehaviorTreeBrain', () => {
   });
 
   it('always returns a valid action', () => {
-    const validTypes = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE', 'GATHER', 'CRAFT'];
+    const validTypes = ['FORAGE', 'REST', 'SEEK_SHELTER', 'EXPLORE', 'SOCIALIZE', 'IDLE', 'GATHER', 'CRAFT', 'FISH'];
     const p = makePerception();
     const action = brain.decide(p);
     expect(validTypes).toContain(action.type);

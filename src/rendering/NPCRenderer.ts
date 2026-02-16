@@ -396,6 +396,41 @@ export class NPCRenderer {
         ctx.fillRect(centerX, indicatorY - 1, 1, 1);
         break;
       }
+      case 'BUILD': {
+        // Brick-laying animation
+        const brickFrame = Math.floor(tick / 10) % 2;
+        // Brick
+        ctx.fillStyle = rgba(180, 100, 50);
+        ctx.fillRect(centerX - 2, indicatorY + (brickFrame === 0 ? 0 : 1), 4, 2);
+        // Mortar line
+        ctx.fillStyle = rgba(200, 200, 200, 0.7);
+        ctx.fillRect(centerX - 2, indicatorY + 2, 4, 1);
+        break;
+      }
+      case 'FISH': {
+        // Fishing rod animation — rod line dipping into water
+        const bobFrame = Math.floor(tick / 12) % 3;
+        // Rod handle (brown)
+        ctx.fillStyle = rgba(140, 90, 40);
+        ctx.fillRect(centerX - 1, indicatorY - 2, 1, 5);
+        // Rod tip angled out
+        ctx.fillStyle = rgba(160, 110, 50);
+        ctx.fillRect(centerX, indicatorY - 3, 1, 1);
+        ctx.fillRect(centerX + 1, indicatorY - 4, 1, 1);
+        // Fishing line (thin, gray)
+        ctx.fillStyle = rgba(180, 180, 180, 0.8);
+        ctx.fillRect(centerX + 2, indicatorY - 4, 1, 3 + bobFrame);
+        // Bobber (red dot at end of line)
+        ctx.fillStyle = rgba(220, 40, 30);
+        ctx.fillRect(centerX + 2, indicatorY - 1 + bobFrame, 1, 1);
+        // Water splash on bob frame 2
+        if (bobFrame === 2) {
+          ctx.fillStyle = rgba(100, 180, 255, 0.6);
+          ctx.fillRect(centerX + 1, indicatorY + bobFrame, 1, 1);
+          ctx.fillRect(centerX + 3, indicatorY + bobFrame, 1, 1);
+        }
+        break;
+      }
     }
   }
 

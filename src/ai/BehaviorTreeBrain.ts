@@ -119,6 +119,10 @@ export class BehaviorTreeBrain implements IBrain {
     const buildAction = this.findBuildTarget(perception);
     if (buildAction) return buildAction;
 
+    // 12.7 FISH: has fishing rod AND water nearby AND hunger not full
+    const fishAction = this.findFishingSpot(perception);
+    if (fishAction) return fishAction;
+
     // 13. GATHER: gatherable objects nearby and inventory not full
     const gatherAction = this.findGatherTarget(perception);
     if (gatherAction) return gatherAction;
@@ -298,5 +302,18 @@ export class BehaviorTreeBrain implements IBrain {
       targetX: Math.round(perception.cameraX),
       targetY: Math.round(perception.cameraY),
     };
+  }
+
+  private findFishingSpot(perception: Perception): Action | null {
+    if (!perception.hasFishingRod) return null;
+    if (perception.needs.hunger > 0.7) return null;
+    if (perception.nearbyFishingSpots.length === 0) return null;
+
+    // Pick closest fishing spot
+    const closest = perception.nearbyFishingSpots.reduce((a, b) =>
+      distance(perception.cameraX, perception.cameraY, a.x, a.y) <
+      distance(perception.cameraX, perception.cameraY, b.x, b.y) ? a : b
+    );
+    return { type: 'FISH', targetX: closest.x, targetY: closest.y };
   }
 }

@@ -29,6 +29,7 @@ const ACTION_LABEL: Record<ActionType, string> = {
   GATHER: '🪓 Gather',
   CRAFT: '🔨 Craft',
   BUILD: '🏗️ Build',
+  FISH: '🎣 Fish',
 };
 
 interface WorldStatsPanelProps {

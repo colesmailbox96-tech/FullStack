@@ -178,6 +178,8 @@ export function generateSyntheticLog(brain: IBrain, count: number): DecisionLog[
       cameraY: cy,
       cameraZoom: 1,
       craftInventoryThreshold: 5,
+      hasFishingRod: false,
+      nearbyFishingSpots: [],
     };
 
     const action = brain.decide(perception);

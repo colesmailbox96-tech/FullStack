@@ -57,6 +57,8 @@ function buildPerception(
     cameraY: 64,
     cameraZoom: 1,
     craftInventoryThreshold: 5,
+    hasFishingRod: false,
+    nearbyFishingSpots: [],
   };
 }
 

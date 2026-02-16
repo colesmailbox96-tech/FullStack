@@ -26,6 +26,7 @@ const ACTION_LABEL: Record<ActionType, string> = {
   GATHER: '🪓 Gathering',
   CRAFT: '🔨 Crafting',
   BUILD: '🏗️ Building',
+  FISH: '🎣 Fishing',
 };
 
 const MEMORY_LABEL: Record<string, string> = {
