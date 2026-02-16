@@ -32,12 +32,13 @@ const HUD: React.FC = () => {
 
   if (!state) return null;
 
-  const { timeSystem, weather, npcs } = state;
+  const { timeSystem, weather, npcs, settlementManager } = state;
   const day = timeSystem.day;
   const timePeriod = timeSystem.getTimePeriod();
   const season = timeSystem.season;
   const weatherState = weather.current;
   const aliveCount = npcs.filter(n => n.alive).length;
+  const settlementCount = settlementManager.getCount();
 
   return (
     <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
@@ -74,6 +75,13 @@ const HUD: React.FC = () => {
           <span className="font-mono">
             👤 {aliveCount}
           </span>
+
+          {/* Settlement Count */}
+          {settlementCount > 0 && (
+            <span className="font-mono">
+              🏘️ {settlementCount}
+            </span>
+          )}
         </div>
       </div>
     </div>

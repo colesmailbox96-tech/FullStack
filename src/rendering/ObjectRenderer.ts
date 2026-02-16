@@ -256,6 +256,123 @@ function drawCampfire(ctx: CanvasRenderingContext2D, tick: number): void {
   if (s2y > 0) ctx.fillRect(8, Math.floor(s2y), 1, 1);
 }
 
+function drawConstructionSite(ctx: CanvasRenderingContext2D, progress: number): void {
+  // Tan scaffolding outline
+  ctx.fillStyle = rgba(180, 150, 100, 0.6);
+  ctx.fillRect(2, 14, 12, 1);
+  ctx.fillRect(2, 4, 1, 10);
+  ctx.fillRect(13, 4, 1, 10);
+  ctx.fillRect(2, 4, 12, 1);
+  // Fill from bottom proportional to progress
+  const fillHeight = Math.floor(10 * progress);
+  ctx.fillStyle = rgba(160, 120, 70, 0.5);
+  ctx.fillRect(3, 14 - fillHeight, 10, fillHeight);
+}
+
+function drawHut(ctx: CanvasRenderingContext2D): void {
+  // Brown walls
+  ctx.fillStyle = rgba(130, 85, 40);
+  ctx.fillRect(3, 8, 10, 7);
+  // Darker roof triangle
+  ctx.fillStyle = rgba(100, 60, 30);
+  ctx.fillRect(2, 6, 12, 2);
+  ctx.fillRect(3, 5, 10, 1);
+  ctx.fillRect(4, 4, 8, 1);
+  ctx.fillRect(5, 3, 6, 1);
+  ctx.fillRect(6, 2, 4, 1);
+  ctx.fillRect(7, 1, 2, 1);
+  // Door opening
+  ctx.fillStyle = rgba(40, 25, 10);
+  ctx.fillRect(6, 11, 3, 4);
+}
+
+function drawFarm(ctx: CanvasRenderingContext2D): void {
+  // Light green ground
+  ctx.fillStyle = rgba(90, 140, 50);
+  ctx.fillRect(2, 5, 12, 9);
+  // Dark tilled rows
+  ctx.fillStyle = rgba(60, 100, 30);
+  ctx.fillRect(3, 7, 10, 1);
+  ctx.fillRect(3, 10, 10, 1);
+  ctx.fillRect(3, 13, 10, 1);
+  // Fence posts at corners
+  ctx.fillStyle = rgba(120, 80, 30);
+  ctx.fillRect(1, 4, 1, 3);
+  ctx.fillRect(14, 4, 1, 3);
+  ctx.fillRect(1, 12, 1, 3);
+  ctx.fillRect(14, 12, 1, 3);
+}
+
+function drawWell(ctx: CanvasRenderingContext2D): void {
+  // Gray stone circle
+  ctx.fillStyle = rgba(140, 140, 145);
+  ctx.fillRect(4, 8, 8, 6);
+  ctx.fillRect(3, 9, 10, 4);
+  // Darker center (water)
+  ctx.fillStyle = rgba(40, 60, 100);
+  ctx.fillRect(5, 9, 6, 4);
+  // Bucket shape
+  ctx.fillStyle = rgba(100, 70, 30);
+  ctx.fillRect(6, 5, 4, 3);
+  ctx.fillRect(7, 4, 2, 1);
+  // Rope
+  ctx.fillStyle = rgba(150, 130, 90);
+  ctx.fillRect(7, 2, 1, 3);
+}
+
+function drawStorehouse(ctx: CanvasRenderingContext2D): void {
+  // Wider brown structure
+  ctx.fillStyle = rgba(110, 75, 35);
+  ctx.fillRect(1, 7, 14, 8);
+  // Cross-beams
+  ctx.fillStyle = rgba(90, 60, 25);
+  ctx.fillRect(1, 10, 14, 1);
+  ctx.fillRect(7, 7, 1, 8);
+  // Roof
+  ctx.fillStyle = rgba(80, 50, 20);
+  ctx.fillRect(0, 5, 16, 2);
+  ctx.fillRect(1, 4, 14, 1);
+}
+
+function drawWatchtower(ctx: CanvasRenderingContext2D): void {
+  // Narrow stone base
+  ctx.fillStyle = rgba(120, 120, 125);
+  ctx.fillRect(5, 8, 6, 7);
+  ctx.fillRect(6, 7, 4, 1);
+  // Wooden platform on top
+  ctx.fillStyle = rgba(110, 75, 35);
+  ctx.fillRect(3, 4, 10, 3);
+  // Railing
+  ctx.fillStyle = rgba(100, 65, 25);
+  ctx.fillRect(3, 3, 1, 1);
+  ctx.fillRect(12, 3, 1, 1);
+  // Small flag
+  ctx.fillStyle = rgba(200, 40, 30);
+  ctx.fillRect(7, 1, 3, 2);
+  ctx.fillStyle = rgba(90, 60, 25);
+  ctx.fillRect(6, 1, 1, 3);
+}
+
+function drawMeetingHall(ctx: CanvasRenderingContext2D, tick: number): void {
+  // Widest structure with A-frame roof
+  ctx.fillStyle = rgba(120, 80, 35);
+  ctx.fillRect(1, 8, 14, 7);
+  // A-frame roof
+  ctx.fillStyle = rgba(90, 55, 25);
+  ctx.fillRect(0, 6, 16, 2);
+  ctx.fillRect(1, 5, 14, 1);
+  ctx.fillRect(2, 4, 12, 1);
+  ctx.fillRect(4, 3, 8, 1);
+  ctx.fillRect(6, 2, 4, 1);
+  // Open front
+  ctx.fillStyle = rgba(50, 30, 15);
+  ctx.fillRect(5, 10, 6, 5);
+  // Warm glow (firelight) inside — subtle flicker
+  const glowAlpha = 0.3 + Math.sin(tick * 0.1) * 0.1;
+  ctx.fillStyle = rgba(255, 180, 60, glowAlpha);
+  ctx.fillRect(6, 11, 4, 3);
+}
+
 export class ObjectRenderer {
   private spriteSheet: SpriteSheet;
 
@@ -317,6 +434,13 @@ export class ObjectRenderer {
     if (obj.type === ObjectType.Campfire) {
       // Campfire needs tick for animation, can't fully cache
       drawCampfire(ctx, tick);
+    } else if (obj.type === ObjectType.ConstructionSite) {
+      // Construction site shows progress-based fill
+      const progress = obj.structureData?.buildProgress ?? 0;
+      drawConstructionSite(ctx, progress);
+    } else if (obj.type === ObjectType.MeetingHall) {
+      // Meeting hall has firelight flicker
+      drawMeetingHall(ctx, tick);
     } else {
       const key = `${obj.type}_${season}_${obj.state}`;
       const sprite = this.spriteSheet.getSprite(key, TILE_SIZE, TILE_SIZE, (sctx) => {
@@ -338,6 +462,21 @@ export class ObjectRenderer {
             break;
           case ObjectType.Mushroom:
             drawMushroom(sctx);
+            break;
+          case ObjectType.Hut:
+            drawHut(sctx);
+            break;
+          case ObjectType.Farm:
+            drawFarm(sctx);
+            break;
+          case ObjectType.Well:
+            drawWell(sctx);
+            break;
+          case ObjectType.Storehouse:
+            drawStorehouse(sctx);
+            break;
+          case ObjectType.Watchtower:
+            drawWatchtower(sctx);
             break;
         }
       });

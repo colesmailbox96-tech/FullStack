@@ -61,6 +61,15 @@ const WorldStatsPanel: React.FC<WorldStatsPanelProps> = ({ visible, onClose }) =
   const rocks = objects.filter(o => o.type === ObjectType.Rock).length;
   const campfires = objects.filter(o => o.type === ObjectType.Campfire).length;
 
+  // Structure and settlement counts
+  const completedStructures = state.structureManager.getCompletedStructures();
+  const activeSites = state.structureManager.getActiveConstructionSites();
+  const settlements = state.settlementManager.getSettlements();
+  const largestSettlement = settlements.reduce(
+    (best, s) => (!best || s.residentNpcIds.length > best.residentNpcIds.length ? s : best),
+    null as typeof settlements[0] | null,
+  );
+
   // Average NPC needs
   const avgNeeds = { hunger: 0, energy: 0, social: 0, curiosity: 0, safety: 0 };
   if (aliveCount > 0) {
@@ -144,6 +153,16 @@ const WorldStatsPanel: React.FC<WorldStatsPanelProps> = ({ visible, onClose }) =
           <StatRow label="Trees" value={trees} />
           <StatRow label="Rocks" value={rocks} />
           <StatRow label="Campfires" value={campfires} />
+        </Section>
+
+        {/* Settlements */}
+        <Section title="🏘️ Settlements">
+          <StatRow label="Settlements" value={settlements.length} />
+          <StatRow label="Structures" value={completedStructures.length} />
+          <StatRow label="Construction" value={activeSites.length} />
+          {largestSettlement && (
+            <StatRow label="Largest" value={`${largestSettlement.name} (${largestSettlement.residentNpcIds.length})`} />
+          )}
         </Section>
 
         {/* Average Needs */}
