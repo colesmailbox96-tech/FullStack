@@ -41,6 +41,12 @@ const MOVE_TICKS = 8;
 const FORAGE_TICKS = 30;
 const MOVING_ENERGY_MULTIPLIER = 1.5;
 const IDLE_ENERGY_DRAIN_BASE = 0.003;
+/** Maximum top memories to consider for knowledge sharing */
+const KNOWLEDGE_SHARE_POOL_SIZE = 10;
+/** Maximum memories to transfer per socialization */
+const KNOWLEDGE_SHARE_MAX = 2;
+/** Position proximity threshold for duplicate memory detection */
+const MEMORY_POSITION_THRESHOLD = 2;
 
 const brain = new BehaviorTreeBrain();
 
@@ -660,18 +666,18 @@ export class NPC {
    * with significance decay. Danger memories shared at full significance.
    */
   private shareKnowledge(partner: NPC): void {
-    const myMemories = this.memory.getTopMemories(10);
+    const myMemories = this.memory.getTopMemories(KNOWLEDGE_SHARE_POOL_SIZE);
     let shared = 0;
 
     for (const mem of myMemories) {
-      if (shared >= 2) break;
+      if (shared >= KNOWLEDGE_SHARE_MAX) break;
 
       // Don't re-share memories that originated from the same source
       const sourceId = mem.sourceNpcId ?? this.id;
       const partnerMemories = partner.memory.getMemories();
       const alreadyHas = partnerMemories.some(
         pm => pm.sourceNpcId === sourceId && pm.type === mem.type &&
-              Math.abs(pm.x - mem.x) < 2 && Math.abs(pm.y - mem.y) < 2
+              Math.abs(pm.x - mem.x) < MEMORY_POSITION_THRESHOLD && Math.abs(pm.y - mem.y) < MEMORY_POSITION_THRESHOLD
       );
       if (alreadyHas) continue;
 

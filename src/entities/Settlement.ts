@@ -80,6 +80,7 @@ export class SettlementManager {
       const structureIds = cluster.map(s => s.id);
       const centerX = cluster.reduce((sum, s) => sum + s.x, 0) / cluster.length;
       const centerY = cluster.reduce((sum, s) => sum + s.y, 0) / cluster.length;
+      // Add buffer to radius so residents slightly outside the cluster are still included
       const clusterRadius = Math.max(
         radius,
         ...cluster.map(s => distance(centerX, centerY, s.x, s.y) + 5)
@@ -89,6 +90,7 @@ export class SettlementManager {
       let found = false;
       for (const [id, settlement] of this.settlements) {
         if (matchedSettlements.has(id)) continue;
+        // Match if most structures overlap (allow one structure difference for updates)
         const overlap = structureIds.filter(sid => settlement.structureIds.includes(sid));
         if (overlap.length >= minStructures - 1) {
           // Update existing settlement

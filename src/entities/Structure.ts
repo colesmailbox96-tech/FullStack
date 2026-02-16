@@ -34,7 +34,7 @@ export interface StructureEffects {
   nearWatchtower: boolean;
   /** Whether a Meeting Hall is within radius */
   nearMeetingHall: boolean;
-  /** Whether a Storehouse is in territory (checked separately) */
+  /** Whether a Storehouse is in nearby range */
   nearStorehouse: boolean;
 }
 
