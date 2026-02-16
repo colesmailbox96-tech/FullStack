@@ -93,7 +93,7 @@ export class WorldObjectManager {
     if (this.generatedChunks.has(key)) return;
     this.generatedChunks.add(key);
 
-    const chunkSeed = this.seed ^ hashCoord(chunkX, chunkY);
+    const chunkSeed = this.seed * 31 + hashCoord(chunkX, chunkY);
     const rng = new Random(chunkSeed);
     const baseX = chunkX * CHUNK_SIZE;
     const baseY = chunkY * CHUNK_SIZE;

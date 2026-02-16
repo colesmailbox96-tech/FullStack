@@ -140,7 +140,7 @@ describe('TileMap', () => {
   });
 
   it('generates tiles on demand with a tile generator', () => {
-    const generator = (_x: number, _y: number) =>
+    const generator = () =>
       createTile(TileType.Sand, 0.35, 0.2, 0.5, 0);
     const tm = new TileMap(10, 10, generator);
 

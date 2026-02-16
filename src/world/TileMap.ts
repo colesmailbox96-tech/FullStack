@@ -70,6 +70,10 @@ function chunkKey(cx: number, cy: number): string {
   return `${cx},${cy}`;
 }
 
+function localCoord(v: number): number {
+  return ((v % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+}
+
 export type TileGenerator = (x: number, y: number) => Tile;
 
 export class TileMap {
@@ -107,19 +111,15 @@ export class TileMap {
   getTile(x: number, y: number): Tile | null {
     const cx = Math.floor(x / CHUNK_SIZE);
     const cy = Math.floor(y / CHUNK_SIZE);
-    const lx = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-    const ly = ((y % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     const chunk = this.getChunk(cx, cy);
-    return chunk[ly * CHUNK_SIZE + lx] ?? null;
+    return chunk[localCoord(y) * CHUNK_SIZE + localCoord(x)] ?? null;
   }
 
   setTile(x: number, y: number, tile: Tile): void {
     const cx = Math.floor(x / CHUNK_SIZE);
     const cy = Math.floor(y / CHUNK_SIZE);
-    const lx = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-    const ly = ((y % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     const chunk = this.getChunk(cx, cy);
-    chunk[ly * CHUNK_SIZE + lx] = tile;
+    chunk[localCoord(y) * CHUNK_SIZE + localCoord(x)] = tile;
   }
 
   isWalkable(x: number, y: number): boolean {
