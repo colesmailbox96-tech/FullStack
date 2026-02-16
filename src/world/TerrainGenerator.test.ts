@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { TerrainGenerator } from './TerrainGenerator';
-import { TileType } from './TileMap';
+import { TerrainGenerator, createTileGenerator } from './TerrainGenerator';
+import { TileMap, TileType } from './TileMap';
 
 describe('TerrainGenerator', () => {
   it('generates a TileMap of correct size', () => {
@@ -71,5 +71,56 @@ describe('TerrainGenerator', () => {
         expect(tile.temperature).toBeLessThanOrEqual(1);
       }
     }
+  });
+
+  it('generates tiles on-demand beyond initial region', () => {
+    const map = TerrainGenerator.generate(42, 16, 16);
+    // Access tile far beyond the initial 16x16 region
+    const tile = map.getTile(500, 500);
+    expect(tile).not.toBeNull();
+    expect(tile!.elevation).toBeGreaterThanOrEqual(0);
+    expect(tile!.elevation).toBeLessThanOrEqual(1);
+  });
+
+  it('generates consistent tiles at negative coordinates', () => {
+    const map = TerrainGenerator.generate(42, 16, 16);
+    const t1 = map.getTile(-10, -20);
+    const t2 = map.getTile(-10, -20);
+    expect(t1).not.toBeNull();
+    expect(t1!.type).toBe(t2!.type);
+    expect(t1!.elevation).toBe(t2!.elevation);
+  });
+});
+
+describe('createTileGenerator', () => {
+  it('produces deterministic tiles for the same seed and coordinates', () => {
+    const gen1 = createTileGenerator(42);
+    const gen2 = createTileGenerator(42);
+    const t1 = gen1(100, 200);
+    const t2 = gen2(100, 200);
+    expect(t1.type).toBe(t2.type);
+    expect(t1.elevation).toBe(t2.elevation);
+    expect(t1.moisture).toBe(t2.moisture);
+  });
+
+  it('produces different tiles for different seeds', () => {
+    const gen1 = createTileGenerator(1);
+    const gen2 = createTileGenerator(2);
+    let differences = 0;
+    for (let i = 0; i < 100; i++) {
+      if (gen1(i, i).type !== gen2(i, i).type) differences++;
+    }
+    expect(differences).toBeGreaterThan(0);
+  });
+
+  it('works with a TileMap to provide infinite generation', () => {
+    const gen = createTileGenerator(42);
+    const tm = new TileMap(16, 16, gen);
+
+    // Tiles at distant coordinates are auto-generated
+    const tile = tm.getTile(1000, -500);
+    expect(tile).not.toBeNull();
+    expect(tile!.elevation).toBeGreaterThanOrEqual(0);
+    expect(tile!.elevation).toBeLessThanOrEqual(1);
   });
 });

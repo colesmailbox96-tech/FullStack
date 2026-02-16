@@ -27,9 +27,19 @@ describe('findPath', () => {
     expect(path).toEqual([{ x: 3, y: 3 }]);
   });
 
-  it('returns null for out-of-bounds', () => {
+  it('finds path from negative coordinates in infinite map', () => {
     const tm = makeWalkableMap(10, 10);
-    expect(findPath(tm, -1, 0, 5, 5)).toBeNull();
+    // With infinite map, starting from out of the populated region can still work
+    // if it can reach a walkable destination
+    const path = findPath(tm, -1, 0, 5, 5);
+    expect(path).not.toBeNull();
+    expect(path![0]).toEqual({ x: -1, y: 0 });
+    expect(path![path!.length - 1]).toEqual({ x: 5, y: 5 });
+  });
+
+  it('returns null when destination has no tiles', () => {
+    const tm = makeWalkableMap(10, 10);
+    // (10,10) has no tile set and no generator, so isWalkable returns false
     expect(findPath(tm, 0, 0, 10, 10)).toBeNull();
   });
 

@@ -22,10 +22,10 @@ export class WaterRenderer {
     tick: number,
   ): void {
     const bounds = camera.getVisibleBounds(TILE_SIZE);
-    const minX = Math.max(0, bounds.minX);
-    const minY = Math.max(0, bounds.minY);
-    const maxX = Math.min(tileMap.width - 1, bounds.maxX);
-    const maxY = Math.min(tileMap.height - 1, bounds.maxY);
+    const minX = bounds.minX;
+    const minY = bounds.minY;
+    const maxX = bounds.maxX;
+    const maxY = bounds.maxY;
 
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {

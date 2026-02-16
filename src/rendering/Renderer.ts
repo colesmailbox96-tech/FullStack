@@ -47,9 +47,12 @@ export class Renderer {
     // 2. Disable image smoothing for crisp pixels
     ctx.imageSmoothingEnabled = false;
 
-    // Update camera
-    camera.clampToWorld(tileMap.width, tileMap.height, TILE_SIZE);
+    // Update camera (no clamping — the map is infinite)
     camera.update(isDragging);
+
+    // Lazily generate objects for newly visible chunks
+    const bounds = camera.getVisibleBounds(TILE_SIZE);
+    objects.ensureObjectsForBounds(tileMap, bounds.minX, bounds.minY, bounds.maxX, bounds.maxY, config);
 
     // 3. Apply camera transform (translate + scale)
     ctx.save();
