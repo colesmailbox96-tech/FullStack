@@ -48,7 +48,7 @@ const ResourceInfoTooltip: React.FC = () => {
 
   const label = OBJECT_LABELS[obj.type] ?? obj.type;
   const resourceType = RESOURCE_TYPE[obj.type];
-  const harvestabl = isHarvestable(obj.type);
+  const harvestable = isHarvestable(obj.type);
 
   return (
     <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 bg-gray-900/95 backdrop-blur-sm border border-gray-600/50 rounded-lg px-4 py-3 text-xs text-gray-200 shadow-lg min-w-[160px]">
@@ -64,7 +64,7 @@ const ResourceInfoTooltip: React.FC = () => {
       <div className="text-gray-400 mb-1">
         Position: ({obj.x}, {obj.y})
       </div>
-      {harvestabl && (
+      {harvestable && (
         <div className="mt-1">
           <div className="flex items-center justify-between">
             <span className="text-gray-400">{resourceType} remaining:</span>
