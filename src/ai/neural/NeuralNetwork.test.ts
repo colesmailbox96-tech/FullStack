@@ -36,6 +36,8 @@ function buildTestPerception(overrides: Partial<Perception> = {}): Perception {
       { id: 'obj_shelter_1', type: ObjectType.Campfire, x: 60, y: 64, state: 'normal' },
     ],
     nearbyNPCs: [],
+    nearbyConstructionSites: [],
+    nearbyStructures: [],
     needs: { hunger: 0.5, energy: 0.5, social: 0.5, curiosity: 0.5, safety: 0.5 },
     personality: { bravery: 0.5, sociability: 0.5, curiosity: 0.5, industriousness: 0.5, craftiness: 0.5 },
     inventory: { wood: 0, stone: 0, berries: 0 },

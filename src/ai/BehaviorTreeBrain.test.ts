@@ -15,6 +15,8 @@ function makePerception(overrides: Partial<Perception> = {}): Perception {
     ],
     nearbyObjects: [],
     nearbyNPCs: [],
+    nearbyConstructionSites: [],
+    nearbyStructures: [],
     needs: { hunger: 0.8, energy: 0.8, social: 0.8, curiosity: 0.8, safety: 0.8 },
     personality: { bravery: 0.5, sociability: 0.5, curiosity: 0.5, industriousness: 0.5, craftiness: 0.5 },
     inventory: { wood: 0, stone: 0, berries: 0 },
