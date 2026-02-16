@@ -70,12 +70,13 @@ describe('TileMap', () => {
     expect(tm.getTile(0, 10)).toBeNull();
   });
 
-  it('isInBounds works correctly', () => {
+  it('isInBounds always returns true for infinite map', () => {
     const tm = new TileMap(5, 5);
     expect(tm.isInBounds(0, 0)).toBe(true);
     expect(tm.isInBounds(4, 4)).toBe(true);
-    expect(tm.isInBounds(-1, 0)).toBe(false);
-    expect(tm.isInBounds(5, 0)).toBe(false);
+    expect(tm.isInBounds(-1, 0)).toBe(true);
+    expect(tm.isInBounds(5, 0)).toBe(true);
+    expect(tm.isInBounds(-100, -100)).toBe(true);
   });
 
   it('isWalkable returns true for walkable tiles', () => {
@@ -127,5 +128,40 @@ describe('TileMap', () => {
     // Place land on top
     tm.setTile(1, 0, createTile(TileType.Grass, 0.5, 0.5, 0.5, 0));
     expect(tm.getWaterEdgeMask(1, 1) & 1).toBe(1); // bit 0 = top has land
+  });
+
+  it('supports negative coordinates with setTile/getTile', () => {
+    const tm = new TileMap(10, 10);
+    const tile = createTile(TileType.Stone, 0.8, 0.3, 0.5, 0);
+    tm.setTile(-5, -10, tile);
+    const retrieved = tm.getTile(-5, -10);
+    expect(retrieved).not.toBeNull();
+    expect(retrieved!.type).toBe(TileType.Stone);
+  });
+
+  it('generates tiles on demand with a tile generator', () => {
+    const generator = (_x: number, _y: number) =>
+      createTile(TileType.Sand, 0.35, 0.2, 0.5, 0);
+    const tm = new TileMap(10, 10, generator);
+
+    // Access tile far outside the initial region
+    const tile = tm.getTile(500, 500);
+    expect(tile).not.toBeNull();
+    expect(tile!.type).toBe(TileType.Sand);
+
+    // Negative coordinates also work
+    const negTile = tm.getTile(-100, -200);
+    expect(negTile).not.toBeNull();
+    expect(negTile!.type).toBe(TileType.Sand);
+  });
+
+  it('chunk loading tracks which chunks are loaded', () => {
+    const generator = () => createTile(TileType.Grass, 0.5, 0.5, 0.5, 0);
+    const tm = new TileMap(10, 10, generator);
+
+    expect(tm.isChunkLoaded(0, 0)).toBe(false);
+    tm.getTile(0, 0);
+    expect(tm.isChunkLoaded(0, 0)).toBe(true);
+    expect(tm.isChunkLoaded(1, 0)).toBe(false);
   });
 });

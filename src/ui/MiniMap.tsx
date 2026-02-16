@@ -21,6 +21,8 @@ const TILE_COLORS: Record<string, string> = {
   [TileType.CaveWall]: '#282428',
 };
 
+const MINIMAP_VIEW_RANGE = 64;
+
 function drawMinimap(
   ctx: CanvasRenderingContext2D,
   tileMap: TileMap,
@@ -33,19 +35,22 @@ function drawMinimap(
   minimapSize: number,
   structures?: WorldObject[],
 ): void {
-  const scale = minimapSize / tileMap.width;
+  const regionSize = MINIMAP_VIEW_RANGE * 2;
+  const scale = minimapSize / regionSize;
+  const originX = Math.floor(cameraX) - MINIMAP_VIEW_RANGE;
+  const originY = Math.floor(cameraY) - MINIMAP_VIEW_RANGE;
 
   ctx.clearRect(0, 0, minimapSize, minimapSize);
 
   // Draw terrain
-  for (let y = 0; y < tileMap.height; y++) {
-    for (let x = 0; x < tileMap.width; x++) {
-      const tile = tileMap.getTile(x, y);
+  for (let dy = 0; dy < regionSize; dy++) {
+    for (let dx = 0; dx < regionSize; dx++) {
+      const tile = tileMap.getTile(originX + dx, originY + dy);
       if (!tile) continue;
       ctx.fillStyle = TILE_COLORS[tile.type] ?? '#000';
       ctx.fillRect(
-        Math.floor(x * scale),
-        Math.floor(y * scale),
+        Math.floor(dx * scale),
+        Math.floor(dy * scale),
         Math.ceil(scale),
         Math.ceil(scale),
       );
@@ -56,8 +61,9 @@ function drawMinimap(
   ctx.fillStyle = '#ffffff';
   for (const npc of npcs) {
     if (!npc.alive) continue;
-    const px = Math.floor(npc.x * scale);
-    const py = Math.floor(npc.y * scale);
+    const px = Math.floor((npc.x - originX) * scale);
+    const py = Math.floor((npc.y - originY) * scale);
+    if (px < 0 || py < 0 || px >= minimapSize || py >= minimapSize) continue;
     ctx.fillRect(px, py, Math.max(2, Math.ceil(scale)), Math.max(2, Math.ceil(scale)));
   }
 
@@ -73,8 +79,9 @@ function drawMinimap(
 
   if (structures) {
     for (const obj of structures) {
-      const px = Math.floor(obj.x * scale);
-      const py = Math.floor(obj.y * scale);
+      const px = Math.floor((obj.x - originX) * scale);
+      const py = Math.floor((obj.y - originY) * scale);
+      if (px < 0 || py < 0 || px >= minimapSize || py >= minimapSize) continue;
       const sz = Math.max(3, Math.ceil(scale * 1.5));
 
       if (obj.type === ObjectType.ConstructionSite) {
@@ -96,8 +103,8 @@ function drawMinimap(
   const TILE_PX = 16;
   const viewW = canvasW / (cameraZoom * TILE_PX);
   const viewH = canvasH / (cameraZoom * TILE_PX);
-  const rx = (cameraX - viewW / 2) * scale;
-  const ry = (cameraY - viewH / 2) * scale;
+  const rx = (cameraX - viewW / 2 - originX) * scale;
+  const ry = (cameraY - viewH / 2 - originY) * scale;
   const rw = viewW * scale;
   const rh = viewH * scale;
 
@@ -150,12 +157,15 @@ const MiniMap: React.FC = () => {
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
       const size = canvas.width;
-      const scale = size / state.tileMap.width;
-      const worldX = mx / scale;
-      const worldY = my / scale;
+      const regionSize = MINIMAP_VIEW_RANGE * 2;
+      const scale = size / regionSize;
+      const originX = Math.floor(cameraX) - MINIMAP_VIEW_RANGE;
+      const originY = Math.floor(cameraY) - MINIMAP_VIEW_RANGE;
+      const worldX = mx / scale + originX;
+      const worldY = my / scale + originY;
       setCamera(worldX, worldY, cameraZoom);
     },
-    [state, cameraZoom, setCamera],
+    [state, cameraX, cameraY, cameraZoom, setCamera],
   );
 
   if (!state) return null;

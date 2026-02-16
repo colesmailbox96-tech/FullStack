@@ -1,7 +1,7 @@
-import { TileMap, TileType } from './TileMap';
+import { TileMap, TileType, CHUNK_SIZE } from './TileMap';
 import { WorldConfig } from '../engine/Config';
 import { Random } from '../utils/Random';
-import { distance } from '../utils/Math';
+import { distance, hashCoord } from '../utils/Math';
 import type { ResourceType } from '../entities/Inventory';
 
 export type StructureType = 'hut' | 'farm' | 'well' | 'storehouse' | 'watchtower' | 'meeting_hall';
@@ -58,10 +58,14 @@ function isGrassTile(type: TileType): boolean {
 export class WorldObjectManager {
   private objects: Map<string, WorldObject>;
   private nextId: number;
+  private generatedChunks: Set<string>;
+  private seed: number;
 
   constructor() {
     this.objects = new Map();
     this.nextId = 0;
+    this.generatedChunks = new Set();
+    this.seed = 0;
   }
 
   private addObject(type: ObjectType, x: number, y: number, resources: number, swayOffset: number): void {
@@ -78,57 +82,58 @@ export class WorldObjectManager {
     });
   }
 
-  generateObjects(tileMap: TileMap, seed: number, config: WorldConfig): void {
-    const rng = new Random(seed);
-    const occupied = new Set<string>();
-    const campfireCount = 3 + rng.nextInt(3); // 3-5
-    let campfiresPlaced = 0;
+  /** Generate objects for a specific chunk region using deterministic seeding. */
+  generateObjectsForChunk(
+    tileMap: TileMap,
+    chunkX: number,
+    chunkY: number,
+    config: WorldConfig,
+  ): void {
+    const key = `${chunkX},${chunkY}`;
+    if (this.generatedChunks.has(key)) return;
+    this.generatedChunks.add(key);
 
-    for (let y = 0; y < tileMap.height; y++) {
-      for (let x = 0; x < tileMap.width; x++) {
+    const chunkSeed = this.seed ^ hashCoord(chunkX, chunkY);
+    const rng = new Random(chunkSeed);
+    const baseX = chunkX * CHUNK_SIZE;
+    const baseY = chunkY * CHUNK_SIZE;
+
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        const x = baseX + lx;
+        const y = baseY + ly;
         const tile = tileMap.getTile(x, y);
-        if (!tile || occupied.has(`${x},${y}`)) continue;
+        if (!tile) continue;
 
         const type = tile.type;
         const moisture = tile.moisture;
         const elevation = tile.elevation;
 
-        // Berry bushes on grass
         if (isGrassTile(type) && rng.next() < config.bushDensity) {
           this.addObject(ObjectType.BerryBush, x, y, config.foodPerBush, 0);
-          occupied.add(`${x},${y}`);
           continue;
         }
 
-        // Oak trees on grass with moisture > 0.5
         if (isGrassTile(type) && moisture > 0.5 && rng.next() < config.treeDensity) {
           this.addObject(ObjectType.OakTree, x, y, 3, rng.next() * Math.PI * 2);
-          occupied.add(`${x},${y}`);
           continue;
         }
 
-        // Pine trees on grass with moisture > 0.6 and elevation > 0.55
         if (isGrassTile(type) && moisture > 0.6 && elevation > 0.55 && rng.next() < 0.05) {
           this.addObject(ObjectType.PineTree, x, y, 3, rng.next() * Math.PI * 2);
-          occupied.add(`${x},${y}`);
           continue;
         }
 
-        // Birch trees on grass with moisture 0.4-0.6
         if (isGrassTile(type) && moisture >= 0.4 && moisture <= 0.6 && rng.next() < 0.03) {
           this.addObject(ObjectType.BirchTree, x, y, 3, rng.next() * Math.PI * 2);
-          occupied.add(`${x},${y}`);
           continue;
         }
 
-        // Rocks on stone/dirt
         if ((type === TileType.Stone || type === TileType.DryDirt) && rng.next() < 0.05) {
           this.addObject(ObjectType.Rock, x, y, 3, 0);
-          occupied.add(`${x},${y}`);
           continue;
         }
 
-        // Mushrooms on grass adjacent to water
         if (isGrassTile(type) && rng.next() < 0.02) {
           const adjacentToWater =
             tileMap.isWater(x - 1, y) ||
@@ -137,14 +142,49 @@ export class WorldObjectManager {
             tileMap.isWater(x, y + 1);
           if (adjacentToWater) {
             this.addObject(ObjectType.Mushroom, x, y, 1, 0);
-            occupied.add(`${x},${y}`);
             continue;
           }
         }
       }
     }
+  }
 
-    // Place campfires on grass away from water
+  /** Ensure objects are generated for all chunks visible in the given bounds. */
+  ensureObjectsForBounds(
+    tileMap: TileMap,
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+    config: WorldConfig,
+  ): void {
+    const cxMin = Math.floor(minX / CHUNK_SIZE);
+    const cyMin = Math.floor(minY / CHUNK_SIZE);
+    const cxMax = Math.floor(maxX / CHUNK_SIZE);
+    const cyMax = Math.floor(maxY / CHUNK_SIZE);
+    for (let cy = cyMin; cy <= cyMax; cy++) {
+      for (let cx = cxMin; cx <= cxMax; cx++) {
+        this.generateObjectsForChunk(tileMap, cx, cy, config);
+      }
+    }
+  }
+
+  generateObjects(tileMap: TileMap, seed: number, config: WorldConfig): void {
+    this.seed = seed;
+    const rng = new Random(seed);
+
+    // Generate objects for the initial region using chunk-based generation
+    this.ensureObjectsForBounds(tileMap, 0, 0, tileMap.width - 1, tileMap.height - 1, config);
+
+    // Place campfires on grass away from water in the initial region
+    const occupied = new Set<string>();
+    for (const obj of this.objects.values()) {
+      occupied.add(`${obj.x},${obj.y}`);
+    }
+
+    const campfireCount = 3 + rng.nextInt(3); // 3-5
+    let campfiresPlaced = 0;
+
     const candidates: Array<{ x: number; y: number }> = [];
     for (let y = 0; y < tileMap.height; y++) {
       for (let x = 0; x < tileMap.width; x++) {

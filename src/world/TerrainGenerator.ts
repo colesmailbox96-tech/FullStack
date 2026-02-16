@@ -1,6 +1,7 @@
 import { SimplexNoise, octaveNoise } from '../utils/SimplexNoise';
 import { hashCoord } from '../utils/Math';
 import { TileMap, TileType, createTile } from './TileMap';
+import type { Tile, TileGenerator } from './TileMap';
 
 function classifyTile(elevation: number, moisture: number): TileType {
   if (elevation < 0.25) return TileType.DeepWater;
@@ -15,22 +16,31 @@ function classifyTile(elevation: number, moisture: number): TileType {
   return TileType.Grass;
 }
 
+/** Create a tile generator function for the given seed. */
+export function createTileGenerator(seed: number): TileGenerator {
+  const elevNoise = new SimplexNoise(seed);
+  const moistNoise = new SimplexNoise(seed + 1000);
+  const tempNoise = new SimplexNoise(seed + 2000);
+
+  return (x: number, y: number): Tile => {
+    const elevation = octaveNoise(elevNoise, x, y, 2, 0.02);
+    const moisture = octaveNoise(moistNoise, x, y, 2, 0.03);
+    const temperature = octaveNoise(tempNoise, x, y, 1, 0.015);
+    const type = classifyTile(elevation, moisture);
+    const variant = hashCoord(x, y);
+    return createTile(type, elevation, moisture, temperature, variant);
+  };
+}
+
 export class TerrainGenerator {
   static generate(seed: number, width: number, height: number): TileMap {
-    const elevNoise = new SimplexNoise(seed);
-    const moistNoise = new SimplexNoise(seed + 1000);
-    const tempNoise = new SimplexNoise(seed + 2000);
-    const tileMap = new TileMap(width, height);
+    const generator = createTileGenerator(seed);
+    const tileMap = new TileMap(width, height, generator);
 
+    // Pre-generate the initial region
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const elevation = octaveNoise(elevNoise, x, y, 2, 0.02);
-        const moisture = octaveNoise(moistNoise, x, y, 2, 0.03);
-        const temperature = octaveNoise(tempNoise, x, y, 1, 0.015);
-        const type = classifyTile(elevation, moisture);
-        const variant = hashCoord(x, y);
-
-        tileMap.setTile(x, y, createTile(type, elevation, moisture, temperature, variant));
+        tileMap.setTile(x, y, generator(x, y));
       }
     }
 

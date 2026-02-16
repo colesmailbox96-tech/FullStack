@@ -216,10 +216,10 @@ export class TerrainRenderer {
     windDirection: number,
   ): void {
     const bounds = camera.getVisibleBounds(TILE_SIZE);
-    const minX = Math.max(0, bounds.minX);
-    const minY = Math.max(0, bounds.minY);
-    const maxX = Math.min(tileMap.width - 1, bounds.maxX);
-    const maxY = Math.min(tileMap.height - 1, bounds.maxY);
+    const minX = bounds.minX;
+    const minY = bounds.minY;
+    const maxX = bounds.maxX;
+    const maxY = bounds.maxY;
 
     const needsCache =
       !this.terrainCache ||

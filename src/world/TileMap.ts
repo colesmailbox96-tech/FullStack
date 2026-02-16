@@ -64,25 +64,62 @@ export function createTile(
   };
 }
 
+export const CHUNK_SIZE = 32;
+
+function chunkKey(cx: number, cy: number): string {
+  return `${cx},${cy}`;
+}
+
+export type TileGenerator = (x: number, y: number) => Tile;
+
 export class TileMap {
   readonly width: number;
   readonly height: number;
-  private tiles: Tile[];
+  private chunks: Map<string, Tile[]>;
+  private tileGenerator: TileGenerator | null;
 
-  constructor(width: number, height: number) {
+  constructor(width: number, height: number, tileGenerator?: TileGenerator) {
     this.width = width;
     this.height = height;
-    this.tiles = new Array<Tile>(width * height);
+    this.chunks = new Map();
+    this.tileGenerator = tileGenerator ?? null;
+  }
+
+  private getChunk(cx: number, cy: number): Tile[] {
+    const key = chunkKey(cx, cy);
+    let chunk = this.chunks.get(key);
+    if (chunk) return chunk;
+
+    chunk = new Array<Tile>(CHUNK_SIZE * CHUNK_SIZE);
+    if (this.tileGenerator) {
+      const baseX = cx * CHUNK_SIZE;
+      const baseY = cy * CHUNK_SIZE;
+      for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+          chunk[ly * CHUNK_SIZE + lx] = this.tileGenerator(baseX + lx, baseY + ly);
+        }
+      }
+    }
+    this.chunks.set(key, chunk);
+    return chunk;
   }
 
   getTile(x: number, y: number): Tile | null {
-    if (!this.isInBounds(x, y)) return null;
-    return this.tiles[y * this.width + x] ?? null;
+    const cx = Math.floor(x / CHUNK_SIZE);
+    const cy = Math.floor(y / CHUNK_SIZE);
+    const lx = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const ly = ((y % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const chunk = this.getChunk(cx, cy);
+    return chunk[ly * CHUNK_SIZE + lx] ?? null;
   }
 
   setTile(x: number, y: number, tile: Tile): void {
-    if (!this.isInBounds(x, y)) return;
-    this.tiles[y * this.width + x] = tile;
+    const cx = Math.floor(x / CHUNK_SIZE);
+    const cy = Math.floor(y / CHUNK_SIZE);
+    const lx = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const ly = ((y % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const chunk = this.getChunk(cx, cy);
+    chunk[ly * CHUNK_SIZE + lx] = tile;
   }
 
   isWalkable(x: number, y: number): boolean {
@@ -95,8 +132,8 @@ export class TileMap {
     return tile !== null ? tile.moveCost : Infinity;
   }
 
-  isInBounds(x: number, y: number): boolean {
-    return x >= 0 && x < this.width && y >= 0 && y < this.height;
+  isInBounds(_x: number, _y: number): boolean {
+    return true;
   }
 
   isWater(x: number, y: number): boolean {
@@ -112,5 +149,15 @@ export class TileMap {
     if (!this.isWater(x, y + 1)) mask |= 4;
     if (!this.isWater(x - 1, y)) mask |= 8;
     return mask;
+  }
+
+  /** Check if a chunk has already been loaded/generated */
+  isChunkLoaded(cx: number, cy: number): boolean {
+    return this.chunks.has(chunkKey(cx, cy));
+  }
+
+  /** Get all loaded chunk keys */
+  getLoadedChunkKeys(): string[] {
+    return Array.from(this.chunks.keys());
   }
 }
