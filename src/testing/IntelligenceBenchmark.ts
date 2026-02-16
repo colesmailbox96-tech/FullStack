@@ -48,7 +48,7 @@ function buildTestPerception(overrides: Partial<Perception>): Perception {
     { id: 'obj_food_2', type: ObjectType.BerryBush, x: 62, y: 66, state: 'normal' },
   ];
   const defaultShelter: ObjectInfo[] = [
-    { id: 'obj_shelter_1', type: ObjectType.Campfire, x: 60, y: 64, state: 'normal' },
+    { id: 'obj_shelter_1', type: ObjectType.Campfire, x: 63, y: 64, state: 'normal' },
   ];
   const defaultTiles: TileInfo[] = [
     { x: 65, y: 64, type: TileType.Grass, walkable: true },

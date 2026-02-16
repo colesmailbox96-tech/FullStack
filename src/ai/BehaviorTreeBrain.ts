@@ -8,6 +8,9 @@ import { applyTraitModifier } from '../entities/Personality';
 import { getAvailableRecipes } from '../engine/Crafting';
 import { totalResources } from '../entities/Inventory';
 
+/** Maximum distance (in tiles) from a campfire at which an NPC can rest. */
+export const CAMPFIRE_REST_RANGE = 3;
+
 /**
  * Behavior tree with tiered priority structure (Fix 6):
  *
@@ -201,7 +204,37 @@ export class BehaviorTreeBrain implements IBrain {
   }
 
   private makeRest(perception: Perception): Action {
-    return { type: 'REST', targetX: Math.round(perception.cameraX), targetY: Math.round(perception.cameraY) };
+    // NPCs can only rest near a campfire
+    const nearbyCampfires = perception.nearbyObjects.filter(
+      (obj: ObjectInfo) => obj.type === ObjectType.Campfire
+    );
+    const campfireInRange = nearbyCampfires.find(
+      (obj: ObjectInfo) => distance(perception.cameraX, perception.cameraY, obj.x, obj.y) <= CAMPFIRE_REST_RANGE
+    );
+    if (campfireInRange) {
+      return { type: 'REST', targetX: Math.round(perception.cameraX), targetY: Math.round(perception.cameraY) };
+    }
+    // Not near a campfire — navigate to the closest visible one
+    if (nearbyCampfires.length > 0) {
+      const closest = nearbyCampfires.reduce((a: ObjectInfo, b: ObjectInfo) =>
+        distance(perception.cameraX, perception.cameraY, a.x, a.y) <
+        distance(perception.cameraX, perception.cameraY, b.x, b.y) ? a : b
+      );
+      return { type: 'SEEK_SHELTER', targetX: closest.x, targetY: closest.y };
+    }
+    // No campfire visible — fall back to general shelter search
+    return this.findShelterForRest(perception);
+  }
+
+  private findShelterForRest(perception: Perception): Action {
+    // Check campfire memories
+    for (const mem of perception.relevantMemories) {
+      if (mem.type === 'found_shelter') {
+        return { type: 'SEEK_SHELTER', targetX: mem.x, targetY: mem.y };
+      }
+    }
+    // No campfire or shelter memory — explore to find one
+    return this.findExploreTarget(perception);
   }
 
   private findClosestNPC(perception: Perception): { id: string; x: number; y: number } | null {
