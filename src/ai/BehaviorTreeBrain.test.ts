@@ -61,12 +61,28 @@ describe('BehaviorTreeBrain', () => {
       expect(action.type).toBe('SEEK_SHELTER');
     });
 
-    it('rests when energy is critically low', () => {
+    it('rests when energy is critically low and near campfire', () => {
       const p = makePerception({
         needs: { hunger: 0.8, energy: 0.05, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [
+          { id: 'fire1', type: ObjectType.Campfire, x: 6, y: 5, state: 'normal' },
+        ],
       });
       const action = brain.decide(p);
       expect(action.type).toBe('REST');
+    });
+
+    it('seeks campfire when energy is critically low but no campfire nearby', () => {
+      const p = makePerception({
+        needs: { hunger: 0.8, energy: 0.05, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [
+          { id: 'fire1', type: ObjectType.Campfire, x: 20, y: 20, state: 'normal' },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('SEEK_SHELTER');
+      expect(action.targetX).toBe(20);
+      expect(action.targetY).toBe(20);
     });
   });
 
@@ -94,12 +110,24 @@ describe('BehaviorTreeBrain', () => {
       expect(action.type).toBe('SEEK_SHELTER');
     });
 
-    it('rests when energy is moderately low', () => {
+    it('rests when energy is moderately low and near campfire', () => {
+      const p = makePerception({
+        needs: { hunger: 0.8, energy: 0.25, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [
+          { id: 'fire1', type: ObjectType.Campfire, x: 6, y: 5, state: 'normal' },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('REST');
+    });
+
+    it('seeks campfire when energy is moderately low but no campfire nearby', () => {
       const p = makePerception({
         needs: { hunger: 0.8, energy: 0.25, social: 0.8, curiosity: 0.8, safety: 0.8 },
       });
       const action = brain.decide(p);
-      expect(action.type).toBe('REST');
+      // No campfire in perception at all — falls through to explore
+      expect(action.type).not.toBe('REST');
     });
   });
 
@@ -147,9 +175,12 @@ describe('BehaviorTreeBrain', () => {
       expect(action.type).toBe('FORAGE');
     });
 
-    it('rests proactively when energy below 0.50', () => {
+    it('rests proactively when energy below 0.50 and near campfire', () => {
       const p = makePerception({
         needs: { hunger: 0.8, energy: 0.45, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [
+          { id: 'fire1', type: ObjectType.Campfire, x: 6, y: 5, state: 'normal' },
+        ],
       });
       const action = brain.decide(p);
       expect(action.type).toBe('REST');
@@ -384,6 +415,67 @@ describe('BehaviorTreeBrain', () => {
       });
       const action = brain.decide(p);
       expect(action.type).not.toBe('FISH');
+    });
+  });
+
+  describe('campfire rest requirement', () => {
+    it('rests when near a campfire within 3 tiles', () => {
+      const p = makePerception({
+        needs: { hunger: 0.8, energy: 0.05, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [
+          { id: 'fire1', type: ObjectType.Campfire, x: 7, y: 5, state: 'normal' },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('REST');
+    });
+
+    it('does not rest when campfire is farther than 3 tiles', () => {
+      const p = makePerception({
+        needs: { hunger: 0.8, energy: 0.05, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [
+          { id: 'fire1', type: ObjectType.Campfire, x: 12, y: 12, state: 'normal' },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('SEEK_SHELTER');
+    });
+
+    it('navigates toward visible campfire when not close enough to rest', () => {
+      const p = makePerception({
+        needs: { hunger: 0.8, energy: 0.05, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [
+          { id: 'fire1', type: ObjectType.Campfire, x: 10, y: 10, state: 'normal' },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('SEEK_SHELTER');
+      expect(action.targetX).toBe(10);
+      expect(action.targetY).toBe(10);
+    });
+
+    it('uses shelter memory when no campfire is visible', () => {
+      const p = makePerception({
+        needs: { hunger: 0.8, energy: 0.05, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [],
+        relevantMemories: [
+          { type: 'found_shelter', tick: 50, x: 30, y: 30, significance: 0.8 },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('SEEK_SHELTER');
+      expect(action.targetX).toBe(30);
+      expect(action.targetY).toBe(30);
+    });
+
+    it('explores when no campfire visible and no shelter memory', () => {
+      const p = makePerception({
+        needs: { hunger: 0.8, energy: 0.05, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        nearbyObjects: [],
+        relevantMemories: [],
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('EXPLORE');
     });
   });
 });
