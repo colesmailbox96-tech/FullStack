@@ -336,4 +336,54 @@ describe('BehaviorTreeBrain', () => {
       expect(action.type).toBe('CRAFT');
     });
   });
+
+  describe('fishing behavior', () => {
+    it('fishes when has fishing rod, water nearby, and hunger not full', () => {
+      const p = makePerception({
+        needs: { hunger: 0.6, energy: 0.8, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        hasFishingRod: true,
+        nearbyFishingSpots: [
+          { x: 6, y: 5, type: TileType.Grass, walkable: true },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).toBe('FISH');
+      expect(action.targetX).toBe(6);
+      expect(action.targetY).toBe(5);
+    });
+
+    it('does not fish without fishing rod', () => {
+      const p = makePerception({
+        needs: { hunger: 0.6, energy: 0.8, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        hasFishingRod: false,
+        nearbyFishingSpots: [
+          { x: 6, y: 5, type: TileType.Grass, walkable: true },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).not.toBe('FISH');
+    });
+
+    it('does not fish when no water tiles nearby', () => {
+      const p = makePerception({
+        needs: { hunger: 0.6, energy: 0.8, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        hasFishingRod: true,
+        nearbyFishingSpots: [],
+      });
+      const action = brain.decide(p);
+      expect(action.type).not.toBe('FISH');
+    });
+
+    it('does not fish when hunger is already high (well-fed)', () => {
+      const p = makePerception({
+        needs: { hunger: 0.9, energy: 0.8, social: 0.8, curiosity: 0.8, safety: 0.8 },
+        hasFishingRod: true,
+        nearbyFishingSpots: [
+          { x: 6, y: 5, type: TileType.Grass, walkable: true },
+        ],
+      });
+      const action = brain.decide(p);
+      expect(action.type).not.toBe('FISH');
+    });
+  });
 });

@@ -46,6 +46,10 @@ const ResourceInfoTooltip: React.FC = () => {
   const obj = state.objects.getObjectById(selectedObjectId);
   if (!obj) return null;
 
+  // Auto-dismiss tooltip when a harvestable resource becomes depleted
+  // (since depleted resources disappear from the map)
+  if (obj.state === 'depleted' && isHarvestable(obj.type)) return null;
+
   const label = OBJECT_LABELS[obj.type] ?? obj.type;
   const resourceType = RESOURCE_TYPE[obj.type];
   const harvestable = isHarvestable(obj.type);

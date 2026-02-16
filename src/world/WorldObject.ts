@@ -209,13 +209,31 @@ export class WorldObjectManager {
 
       obj.respawnTimer--;
       if (obj.respawnTimer <= 0) {
-        const foodAmount = season === 'winter'
-          ? Math.floor(config.foodPerBush * (1 - config.winterFoodReduction))
-          : config.foodPerBush;
-        obj.resources = Math.max(1, foodAmount);
+        const baseAmount = this.getBaseResources(obj.type, config);
+        const amount = season === 'winter'
+          ? Math.floor(baseAmount * (1 - config.winterFoodReduction))
+          : baseAmount;
+        obj.resources = Math.max(1, amount);
         obj.state = 'ripe';
         obj.respawnTimer = 0;
       }
+    }
+  }
+
+  /** Return the default resource count for a given object type. */
+  private getBaseResources(type: ObjectType, config: WorldConfig): number {
+    switch (type) {
+      case ObjectType.BerryBush:
+        return config.foodPerBush;
+      case ObjectType.OakTree:
+      case ObjectType.PineTree:
+      case ObjectType.BirchTree:
+      case ObjectType.Rock:
+        return 3;
+      case ObjectType.Mushroom:
+        return 1;
+      default:
+        return config.foodPerBush;
     }
   }
 
