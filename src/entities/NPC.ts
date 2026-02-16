@@ -513,37 +513,43 @@ export class NPC {
           if (obj) {
             if ((obj.type === ObjectType.OakTree || obj.type === ObjectType.PineTree || obj.type === ObjectType.BirchTree)
                 && obj.state !== 'depleted') {
-              addResource(this.inventory, 'wood', 1);
-              grantSkillXP(this.skills, 'building');
-              // Use tool if applicable
-              if (this.equippedTool && this.equippedTool.targetResource === 'wood') {
-                useTool(this.equippedTool);
-                if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+              const harvested = objects.harvestObject(obj.id, config.foodRespawnTicks);
+              if (harvested) {
+                addResource(this.inventory, 'wood', 1);
+                grantSkillXP(this.skills, 'building');
+                // Use tool if applicable
+                if (this.equippedTool && this.equippedTool.targetResource === 'wood') {
+                  useTool(this.equippedTool);
+                  if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+                }
+                this.memory.addMemory({
+                  type: 'gathered_resource',
+                  tick: this.age,
+                  x: obj.x,
+                  y: obj.y,
+                  significance: 0.4,
+                  detail: 'wood',
+                });
               }
-              this.memory.addMemory({
-                type: 'gathered_resource',
-                tick: this.age,
-                x: obj.x,
-                y: obj.y,
-                significance: 0.4,
-                detail: 'wood',
-              });
             } else if (obj.type === ObjectType.Rock && obj.state !== 'depleted') {
-              addResource(this.inventory, 'stone', 1);
-              grantSkillXP(this.skills, 'building');
-              // Use tool if applicable
-              if (this.equippedTool && this.equippedTool.targetResource === 'stone') {
-                useTool(this.equippedTool);
-                if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+              const harvested = objects.harvestObject(obj.id, config.foodRespawnTicks);
+              if (harvested) {
+                addResource(this.inventory, 'stone', 1);
+                grantSkillXP(this.skills, 'building');
+                // Use tool if applicable
+                if (this.equippedTool && this.equippedTool.targetResource === 'stone') {
+                  useTool(this.equippedTool);
+                  if (isToolBroken(this.equippedTool)) this.equippedTool = null;
+                }
+                this.memory.addMemory({
+                  type: 'gathered_resource',
+                  tick: this.age,
+                  x: obj.x,
+                  y: obj.y,
+                  significance: 0.4,
+                  detail: 'stone',
+                });
               }
-              this.memory.addMemory({
-                type: 'gathered_resource',
-                tick: this.age,
-                x: obj.x,
-                y: obj.y,
-                significance: 0.4,
-                detail: 'stone',
-              });
             }
           }
           this.actionTimer = 0;

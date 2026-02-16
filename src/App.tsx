@@ -11,6 +11,7 @@ import EventLogPanel from './ui/EventLogPanel';
 import AchievementPanel from './ui/AchievementPanel';
 import WorldStatsPanel from './ui/WorldStatsPanel';
 import TestingDashboard from './ui/TestingDashboard';
+import ResourceInfoTooltip from './ui/ResourceInfoTooltip';
 
 const App: React.FC = () => {
   const showWelcome = useSimulation(s => s.showWelcome);
@@ -42,6 +43,7 @@ const App: React.FC = () => {
           <HUD />
           <MiniMap />
           <NPCInfoPanel />
+          <ResourceInfoTooltip />
           <SpeedControls />
           <EventLogPanel />
           <AchievementPanel />

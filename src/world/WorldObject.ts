@@ -102,28 +102,28 @@ export class WorldObjectManager {
 
         // Oak trees on grass with moisture > 0.5
         if (isGrassTile(type) && moisture > 0.5 && rng.next() < config.treeDensity) {
-          this.addObject(ObjectType.OakTree, x, y, 0, rng.next() * Math.PI * 2);
+          this.addObject(ObjectType.OakTree, x, y, 3, rng.next() * Math.PI * 2);
           occupied.add(`${x},${y}`);
           continue;
         }
 
         // Pine trees on grass with moisture > 0.6 and elevation > 0.55
         if (isGrassTile(type) && moisture > 0.6 && elevation > 0.55 && rng.next() < 0.05) {
-          this.addObject(ObjectType.PineTree, x, y, 0, rng.next() * Math.PI * 2);
+          this.addObject(ObjectType.PineTree, x, y, 3, rng.next() * Math.PI * 2);
           occupied.add(`${x},${y}`);
           continue;
         }
 
         // Birch trees on grass with moisture 0.4-0.6
         if (isGrassTile(type) && moisture >= 0.4 && moisture <= 0.6 && rng.next() < 0.03) {
-          this.addObject(ObjectType.BirchTree, x, y, 0, rng.next() * Math.PI * 2);
+          this.addObject(ObjectType.BirchTree, x, y, 3, rng.next() * Math.PI * 2);
           occupied.add(`${x},${y}`);
           continue;
         }
 
         // Rocks on stone/dirt
         if ((type === TileType.Stone || type === TileType.DryDirt) && rng.next() < 0.05) {
-          this.addObject(ObjectType.Rock, x, y, 0, 0);
+          this.addObject(ObjectType.Rock, x, y, 3, 0);
           occupied.add(`${x},${y}`);
           continue;
         }
